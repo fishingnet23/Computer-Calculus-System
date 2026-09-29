@@ -51,6 +51,11 @@ private:
 	std::string src;
 	std::size_t pos = 0;
 
+	void skipWhitespace();
+	
+    Token extractLiteral();
+	Token extractIdentifier();
+	Token extractUnknown();
 public:
 
 	Tokenizer(const std::string& src)
@@ -66,6 +71,6 @@ public:
 
     Token next();
 
-	std::vector<Token> tokenize();
+    std::vector<Token> tokenize();
 };
 

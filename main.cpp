@@ -2,12 +2,12 @@
 #include "TreeNodes.h"
 #include "Tokenizer.hpp"
 
-void testToken(std::string token)
+static void testToken(std::string src)
 {
 
 
-    Tokenizer t(token);
-    std::cout << token << std::endl;
+    Tokenizer t(src);
+    std::cout << src << std::endl;
     auto res1 = t.tokenize();
     std::cout << "TOKENIZED: (NOT PARSED, JUST TURNED FROM TEXT INTO TOKENS)" << std::endl;
     for (const auto& word : res1)
@@ -15,7 +15,7 @@ void testToken(std::string token)
     std::cout << "\n"<<std::endl;
 }
 
-void tokenizerTest()
+static void tokenizerTest()
 {
 
     testToken("sin(x) + 5 + 3 + 2");
