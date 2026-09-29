@@ -54,7 +54,7 @@ public:
         return str;
     }
 
-    double evaluate(const Environment& env) const {
+    double evaluate(const Environment& env) const override {
         // Evaluate all child nodes first, this ensures nested operations and functions get evaluated first
         std::vector<double> evaluatedArgs;
         for (const auto& child : arguments) {
