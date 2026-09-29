@@ -50,11 +50,10 @@ class Tokenizer
 private:
 	std::string src;
 	std::size_t pos = 0;
-	const OperationRegistry& registry;
 
 public:
 
-	Tokenizer(std::string src,const OperationRegistry& registry) : registry(registry)
+	Tokenizer(std::string src)
 	{
 		this->src = src;
 		this->pos = 0;
@@ -135,6 +134,7 @@ public:
 
             token += current;
             pos++;
+
         }
 
         return Token(TokenType::UNKNOWN, token);

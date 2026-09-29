@@ -2,7 +2,7 @@
 #include "Node.hpp"
 #include "Operators.hpp"
 
-// Simple wrapper for a double percision floating point number
+// simple wrapper for a double value
 class NumberNode : public Node {
     double value;
 public:
@@ -17,9 +17,9 @@ public:
     VariableNode(std::string name) : name(std::move(name)) {}
     std::string toString() const override { return name; }
 
-    //Method that simply looks up the variables' value
+    //method that simply looks up the variables' value
     double evaluate(const Environment& env) const override {
-        // Look up the variable name in the enviornment table. If it's not there, default to 0.
+        // look up the variable name in the enviornment table. If it's not there, default to 0.
         auto pair = env.find(name);
         return (pair != env.end()) ? pair->second : 0.0;
     }
@@ -44,11 +44,18 @@ public:
         if (arguments.size() == 2) {
             return arguments[0]->toString() + " " + op + " " + arguments[1]->toString();
         }
-        return op + "(...)";
+        
+        std::string str = "(";
+        for (const auto& arg : arguments)
+        {
+            str += arg->toString() + " ";
+        }
+        str += ")";
+        return str;
     }
 
     double evaluate(const Environment& env) const {
-        // Evaluate all child nodes first
+        // Evaluate all child nodes first, this ensures nested operations and functions get evaluated first
         std::vector<double> evaluatedArgs;
         for (const auto& child : arguments) {
             evaluatedArgs.push_back(child->evaluate(env));
