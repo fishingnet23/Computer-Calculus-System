@@ -51,11 +51,13 @@ static void syntaxTreeTest()
     std::cout << "Result when x=PI: " << totalExpr->evaluate(env) << "\n";
 }
 
-void main() {
+int main() {
     std::cout << "\n\nTOKENIZER TEST: \n\n" << std::endl;
     tokenizerTest();
     std::cout << "\n\nABSTRACT SYNTAX TREE EVALUATION TEST: \n\n" << std::endl;
     syntaxTreeTest();
+
+    return 0;
 }
 
 
