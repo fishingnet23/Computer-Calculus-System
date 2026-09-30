@@ -140,6 +140,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Operators.cpp" />
+    <ClCompile Include="Parser.cpp" />
     <ClCompile Include="Tokenizer.cpp" />
     <ClCompile Include="TreeNodes.cpp" />
     <ClCompile Include="main.cpp" />
@@ -147,6 +148,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Operators.hpp" />
+    <ClInclude Include="Parser.hpp" />
     <ClInclude Include="Tokenizer.hpp" />
     <ClInclude Include="TreeNodes.h" />
     <ClInclude Include="Node.hpp" />

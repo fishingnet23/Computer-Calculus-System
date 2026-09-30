@@ -1,6 +1,11 @@
 #include <iostream>
 #include "TreeNodes.h"
 #include "Tokenizer.hpp"
+#include "Parser.hpp"
+
+constexpr double PI = 3.14159265358979323846;
+constexpr double E = 2.71828182845904523536;
+
 
 static void testToken(std::string src)
 {
@@ -18,25 +23,24 @@ static void testToken(std::string src)
 static void tokenizerTest()
 {
 
-    testToken("sin(x) + 5 + 3 + 2");
+    testToken("sin(x) + 5.233 + 3 + 2");
     testToken("ln(cos(x + 2) * 3) * 3 + 23");
     testToken("\n x^2 / 23 * 100 + sin(x*x*x*x)\n + 532");
 
 }
 
-
 static void syntaxTreeTest()
 {
     OperationRegistry registry;
 
-    NodePtr xNode = std::make_shared<VariableNode>("x");
+    ASTNodePtr xNode = std::make_shared<VariableNode>("x");
 
-    NodePtr sinX = std::make_shared<OperatorNode>("sin", std::vector<NodePtr>{xNode}, registry);
-    NodePtr cosX = std::make_shared<OperatorNode>("cos", std::vector<NodePtr>{xNode}, registry);
-    NodePtr lnX = std::make_shared<OperatorNode>("ln", std::vector<NodePtr>{xNode}, registry);
+    ASTNodePtr sinX = std::make_shared<OperatorNode>("sin", std::vector<ASTNodePtr>{xNode}, registry);
+    ASTNodePtr cosX = std::make_shared<OperatorNode>("cos", std::vector<ASTNodePtr>{xNode}, registry);
+    ASTNodePtr lnX = std::make_shared<OperatorNode>("ln", std::vector<ASTNodePtr>{xNode}, registry);
 
 
-    NodePtr totalExpr = std::make_shared<OperatorNode>("+", std::vector<NodePtr>{sinX, cosX}, registry);
+    ASTNodePtr totalExpr = std::make_shared<OperatorNode>("+", std::vector<ASTNodePtr>{sinX, cosX}, registry);
 
     std::cout << "Expression: " << totalExpr->toString() << "\n";
 
@@ -45,10 +49,28 @@ static void syntaxTreeTest()
     std::cout << "Result when x=0: " << totalExpr->evaluate(env) << "\n";
     env["x"] = 1.0;
     std::cout << "Result when x=1: " << totalExpr->evaluate(env) << "\n";
-    env["x"] = 2.71828182845904523536;
+    env["x"] = E;
     std::cout << "Result when x=e: " << totalExpr->evaluate(env) << "\n";
-    env["x"] = 3.14159265358979323846;
+    env["x"] = PI;
     std::cout << "Result when x=PI: " << totalExpr->evaluate(env) << "\n";
+}
+
+static void fullTest(std::string text, Environment& env)
+{
+    OperationRegistry registry;
+
+    Tokenizer t(text);
+    auto tokens = t.tokenize();
+    Parser p(tokens,registry);
+
+    ASTNodePtr parsedExpression = p.parseTokens();
+
+    std::cout << "Source Expression: " << text << "\n";
+    std::cout << "Parsed Expression: " << parsedExpression->toString() << "\n";
+
+    std::cout << "Enviornment: \n" << env;
+
+    std::cout << "Evaluation: " << parsedExpression->evaluate(env) <<"\n"<< std::endl;
 }
 
 int main() {
@@ -56,6 +78,20 @@ int main() {
     tokenizerTest();
     std::cout << "\n\nABSTRACT SYNTAX TREE EVALUATION TEST: \n\n" << std::endl;
     syntaxTreeTest();
+
+    std::cout << "\n\nFULL EVALUATOR TEST, STRING -> TOKENS -> AST -> NUMBER\n\n"<<std::endl;
+
+    Environment env;
+    env["x"] = 0.0;
+    env["y"] = 1.0;
+    fullTest("(x^2+32) * 10", env);
+    fullTest("sin(x+y) * 10", env);
+
+    env["x"] = PI;
+    env["y"] = PI;
+    fullTest("(x^2+32) * 10", env);
+    fullTest("sin(x+y) * 10", env);
+    //fullTest("3x + 2",env); // Implicit multiplication not supported yet
 
     return 0;
 }
