@@ -4,6 +4,8 @@
 #include <limits>
 #include <iostream>
 
+namespace AST
+{
 enum class TokenType
 {
 	UNKNOWN = -1,
@@ -73,4 +75,4 @@ public:
 
     std::vector<Token> tokenize();
 };
-
+};
