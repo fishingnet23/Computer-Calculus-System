@@ -10,7 +10,7 @@
                 "-g",
                 "${workspaceFolder}/src/*.cpp",
                 "-o",
-                "${workspaceFolder}/bin/main.exe"
+                "${workspaceFolder}/bin/main"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -21,6 +21,15 @@
             "group": {
                 "kind": "build",
                 "isDefault": true
+            },
+            "windows": {
+                "args": [
+                    "-std=c++17",
+                    "-g",
+                    "${workspaceFolder}/src/*.cpp",
+                    "-o",
+                    "${workspaceFolder}/bin/main.exe"
+                ]
             }
         }
     ]
