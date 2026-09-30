@@ -101,6 +101,25 @@ std::vector<Token> Tokenizer::tokenize()
         Token nxt = next();
         res.push_back(nxt);
     }
+
+    // normalize
+
+    for(size_t i=0;i<res.size();i++)
+    {
+        auto& token = res[i];
+
+        if(token.type == TokenType::LITERAL || token.type == TokenType::IDENTIFIER || token.type == TokenType::R_BRACKET)
+        {
+            // check if the next token is an identifier/bracket, if it is, implicit multiplication
+            if(i+1 < res.size() && (res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET))
+            {
+                // insert a multiplication operator between the two tokens
+                res.insert(res.begin() + i + 1, Token(TokenType::UNKNOWN, "*"));
+                i++; // skip the next token since we just inserted a new one
+            }
+        }
+    }
+
     return res;
 }
 

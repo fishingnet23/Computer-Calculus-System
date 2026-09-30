@@ -55,7 +55,7 @@ static void syntaxTreeTest()
     std::cout << "Result when x=PI: " << totalExpr->evaluate(env) << "\n";
 }
 
-static void fullTest(std::string text, Environment& env)
+static void fullTest(const std::string& text, Environment& env)
 {
     OperationRegistry registry;
 
@@ -91,7 +91,12 @@ int main() {
     env["y"] = PI;
     fullTest("(x^2+32) * 10", env);
     fullTest("sin(x+y) * 10", env);
-    //fullTest("3x + 2",env); // Implicit multiplication not supported yet
+    fullTest("ln(cos(x + 2) * 3) * 3 + 23", env);
+    fullTest("9*2^2*2",env);
+
+    env["x"] = 2.0;
+    fullTest("5(10x)^2 + 5x + 2",env);
+    fullTest("3x + 2 3 3",env);
 
     return 0;
 }

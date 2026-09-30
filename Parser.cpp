@@ -4,13 +4,13 @@
 
 Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
 {
-    OperatorContext result{ nullptr, nullptr,-1 };
+    OperatorContext result{ nullptr, nullptr,0 };
 
     int depth = 0;
     int bestPriority = std::numeric_limits<int>::max();
 
     if (tokens.size() < end || start > tokens.size() || start >= end)
-        throw std::exception("out of bounds!");
+        throw std::runtime_error("out of bounds!");
 
     for (size_t i = start; i < end; ++i)
     {
@@ -40,7 +40,7 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
 
         int priority = pair->second.precedence;
 
-        if (priority <= bestPriority)
+        if (priority < bestPriority)
         {
             bestPriority = priority;
             result.token = &token;
@@ -134,7 +134,7 @@ ASTNodePtr Parser::parseTokens(size_t start, size_t end)
     }
     else
     {
-        throw std::exception("Not implemented exception!");
+        throw std::runtime_error("Not implemented exception!");
     }
 
     return rootNode;

@@ -57,7 +57,7 @@ public:
         }
         // Binary operator: arg1 op arg2
         if (arguments.size() == 2) {
-            return "("+arguments[0]->toString() + " " + op + " " + arguments[1]->toString()+")";
+            return arguments[0]->toString() + " " + op + " " + arguments[1]->toString();
         }
         
         std::string str = "(";
