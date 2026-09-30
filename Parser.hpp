@@ -4,7 +4,8 @@
 
 
 
-
+namespace AST
+{
 class Parser
 {
 private:
@@ -23,7 +24,8 @@ public:
 
 
 
-	ASTNodePtr parseTokens();
+	NodePtr parseTokens();
 	bool isWrappedInBrackets(size_t start, size_t end);
-	ASTNodePtr parseTokens(size_t contextStart, size_t contextEnd);
+	NodePtr parseTokens(size_t contextStart, size_t contextEnd);
+};
 };

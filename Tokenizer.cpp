@@ -1,5 +1,7 @@
 #include "Tokenizer.hpp"
 
+namespace AST
+{
 void Tokenizer::skipWhitespace()
 {
     while (pos < src.length() && (src[pos] == ' ' || src[pos] == '\t' || src[pos] == '\n' || src[pos] == '\r'))
@@ -123,3 +125,4 @@ std::vector<Token> Tokenizer::tokenize()
     return res;
 }
 
+};

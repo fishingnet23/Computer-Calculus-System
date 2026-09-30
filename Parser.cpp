@@ -1,7 +1,8 @@
 #include "Parser.hpp"
 
 
-
+namespace AST
+{
 Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
 {
     OperatorContext result{ nullptr, nullptr,0 };
@@ -54,7 +55,7 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
 
 Parser::Parser(const std::vector<Token>& tokens, const OperationRegistry& registry):tokens(tokens),registry(registry){}
 
-ASTNodePtr Parser::parseTokens()
+NodePtr Parser::parseTokens()
 {
 	return parseTokens(0,tokens.size());
 }
@@ -82,7 +83,7 @@ bool Parser::isWrappedInBrackets(size_t start, size_t end)
 
     return true;
 }
-ASTNodePtr Parser::parseTokens(size_t start, size_t end)
+NodePtr Parser::parseTokens(size_t start, size_t end)
 {
 
 	// single token case
@@ -105,7 +106,7 @@ ASTNodePtr Parser::parseTokens(size_t start, size_t end)
     }
 
     OperatorContext root = getRootOperator(start,end);
-    ASTNodePtr rootNode;
+    NodePtr rootNode;
     if (root.token == nullptr)
     {
         // Range is empty or invalid sub-expression
@@ -118,19 +119,19 @@ ASTNodePtr Parser::parseTokens(size_t start, size_t end)
 
     if (root.op->format == Operation::Format::INFIX)
     {
-        ASTNodePtr left = parseTokens(start, root.index);
-        ASTNodePtr right = parseTokens(root.index + 1, end);
-        rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<ASTNodePtr>{ left,right },registry);
+        NodePtr left = parseTokens(start, root.index);
+        NodePtr right = parseTokens(root.index + 1, end);
+        rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<NodePtr>{ left,right },registry);
     }
     else if (root.op->format == Operation::Format::PREFIX)
     {
-        ASTNodePtr inner = parseTokens(root.index+1,end);
-        rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<ASTNodePtr>{inner}, registry);
+        NodePtr inner = parseTokens(root.index+1,end);
+        rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<NodePtr>{inner}, registry);
     }
     else if (root.op->format == Operation::Format::POSTFIX)
     {
-        ASTNodePtr inner = parseTokens(start, root.index);
-        rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<ASTNodePtr>{ inner }, registry);
+        NodePtr inner = parseTokens(start, root.index);
+        rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<NodePtr>{ inner }, registry);
     }
     else
     {
@@ -140,3 +141,4 @@ ASTNodePtr Parser::parseTokens(size_t start, size_t end)
     return rootNode;
     
 }
+};

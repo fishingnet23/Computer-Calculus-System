@@ -3,13 +3,14 @@
 #include "Operators.hpp"
 
 
-
+namespace AST
+{
 // simple wrapper for a double value
-class NumberNode : public ASTNode {
+class NumberNode : public Node {
     double value;
 public:
     NumberNode(double val) : value(val) {}
-    NumberNode(std::string val)
+    NumberNode(const std::string& val)
     {
         try
         {
@@ -26,7 +27,7 @@ public:
     double evaluate(const Environment&) const override { return value; }
 };
 
-class VariableNode : public ASTNode {
+class VariableNode : public Node {
     std::string name;
 public:
     VariableNode(std::string name) : name(std::move(name)) {}
@@ -40,13 +41,13 @@ public:
     }
 };
 
-class OperatorNode : public ASTNode {
+class OperatorNode : public Node {
     std::string op;
-    std::vector<ASTNodePtr> arguments;
+    std::vector<NodePtr> arguments;
     const OperationRegistry& procedureRegistry;
 
 public:
-    OperatorNode(std::string op, std::vector<ASTNodePtr> args, const OperationRegistry& registry)
+    OperatorNode(std::string op, std::vector<NodePtr> args, const OperationRegistry& registry)
         : op(std::move(op)), arguments(std::move(args)), procedureRegistry(registry) {
     }
 
@@ -80,6 +81,4 @@ public:
         return procedureRegistry.execute(op, evaluatedArgs);
     }
 };
-
-
-
+};

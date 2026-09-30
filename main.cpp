@@ -11,7 +11,7 @@ static void testToken(std::string src)
 {
 
 
-    Tokenizer t(src);
+    AST::Tokenizer t(src);
     std::cout << src << std::endl;
     auto res1 = t.tokenize();
     std::cout << "TOKENIZED: (NOT PARSED, JUST TURNED FROM TEXT INTO TOKENS)" << std::endl;
@@ -31,20 +31,20 @@ static void tokenizerTest()
 
 static void syntaxTreeTest()
 {
-    OperationRegistry registry;
+    AST::OperationRegistry registry;
 
-    ASTNodePtr xNode = std::make_shared<VariableNode>("x");
+    AST::NodePtr xNode = std::make_shared<AST::VariableNode>("x");
 
-    ASTNodePtr sinX = std::make_shared<OperatorNode>("sin", std::vector<ASTNodePtr>{xNode}, registry);
-    ASTNodePtr cosX = std::make_shared<OperatorNode>("cos", std::vector<ASTNodePtr>{xNode}, registry);
-    ASTNodePtr lnX = std::make_shared<OperatorNode>("ln", std::vector<ASTNodePtr>{xNode}, registry);
+    AST::NodePtr sinX = std::make_shared<AST::OperatorNode>("sin", std::vector<AST::NodePtr>{xNode}, registry);
+    AST::NodePtr cosX = std::make_shared<AST::OperatorNode>("cos", std::vector<AST::NodePtr>{xNode}, registry);
+    AST::NodePtr lnX = std::make_shared<AST::OperatorNode>("ln", std::vector<AST::NodePtr>{xNode}, registry);
 
 
-    ASTNodePtr totalExpr = std::make_shared<OperatorNode>("+", std::vector<ASTNodePtr>{sinX, cosX}, registry);
+    AST::NodePtr totalExpr = std::make_shared<AST::OperatorNode>("+", std::vector<AST::NodePtr>{sinX, cosX}, registry);
 
     std::cout << "Expression: " << totalExpr->toString() << "\n";
 
-    Environment env;
+    AST::Environment env;
     env["x"] = 0.0;
     std::cout << "Result when x=0: " << totalExpr->evaluate(env) << "\n";
     env["x"] = 1.0;
@@ -55,20 +55,21 @@ static void syntaxTreeTest()
     std::cout << "Result when x=PI: " << totalExpr->evaluate(env) << "\n";
 }
 
-static void fullTest(const std::string& text, Environment& env)
+static void fullTest(const std::string& text, AST::Environment& env)
 {
-    OperationRegistry registry;
+    AST::OperationRegistry registry;
 
-    Tokenizer t(text);
+    AST::Tokenizer t(text);
     auto tokens = t.tokenize();
-    Parser p(tokens,registry);
+    AST::Parser p(tokens,registry);
 
-    ASTNodePtr parsedExpression = p.parseTokens();
+    AST::NodePtr parsedExpression = p.parseTokens();
 
     std::cout << "Source Expression: " << text << "\n";
     std::cout << "Parsed Expression: " << parsedExpression->toString() << "\n";
 
-    std::cout << "Enviornment: \n" << env;
+    std::cout << "Enviornment: \n";
+    AST::printEnvironment(env);
 
     std::cout << "Evaluation: " << parsedExpression->evaluate(env) <<"\n"<< std::endl;
 }
@@ -81,7 +82,7 @@ int main() {
 
     std::cout << "\n\nFULL EVALUATOR TEST, STRING -> TOKENS -> AST -> NUMBER\n\n"<<std::endl;
 
-    Environment env;
+    AST::Environment env;
     env["x"] = 0.0;
     env["y"] = 1.0;
     fullTest("(x^2+32) * 10", env);
@@ -96,7 +97,7 @@ int main() {
 
     env["x"] = 2.0;
     fullTest("5(10x)^2 + 5x + 2",env);
-    fullTest("3x + 2 3 3",env);
+    fullTest("3x + 2*3*3",env);
 
     return 0;
 }

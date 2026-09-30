@@ -1,5 +1,6 @@
 #include "Operators.hpp"
-
+namespace AST
+{
 OperationRegistry::OperationRegistry()
 {
     // binary operators
@@ -44,3 +45,4 @@ double OperationRegistry::execute(const std::string& opIdentifier, const std::ve
     }
     return pair->second.procedure(args); // call the registered function
 }
+};

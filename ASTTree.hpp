@@ -2,37 +2,25 @@
 
 namespace AST
 {
-class ASTTree
+class Tree
 {
-    ASTNodePtr root;
-    ASTNodePtr parseTokens(const std::vector<Token>& tokens, const OperationRegistry& registry)
-    {
-        Parser parser(tokens, registry);
-        return parser.parseTokens();
-    }
+    NodePtr root;
+    NodePtr parseTokens(const std::vector<Token>& tokens, const OperationRegistry& registry);
 public:
-    ASTTree(ASTNodePtr root) :root(root) {}
-    ASTTree() :root(nullptr) {}
-    ASTTree(const std::vector<Token>& tokens, const OperationRegistry& registry)
-    {
-        root = parseTokens(tokens, registry);
-    }
-    ASTTree(const std::string& src, const OperationRegistry& registry)
-    {
-        Tokenizer tokenizer(src);
-        auto tokens = tokenizer.tokenize();
-        root = parseTokens(tokens, registry);
-    }
+    Tree(NodePtr root) :root(root) {}
+    Tree() :root(nullptr) {}
+    Tree(const std::vector<Token>& tokens, const OperationRegistry& registry){root = parseTokens(tokens, registry);}
+    Tree(const std::string& src, const OperationRegistry& registry);
 
-    ASTNodePtr getRoot() const { return root; }
-    void setRoot(ASTNodePtr newRoot) { root = newRoot;}
+    NodePtr getRoot() const { return root; }
+    void setRoot(NodePtr newRoot) { root = newRoot;}
 
     std::string toString() const
     {
         if (root)
             return root->toString();
         else
-            return "";
+            return "EMPTY TREE";
     }
 
     double evaluate(const Environment& env) const

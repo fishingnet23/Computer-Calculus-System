@@ -6,6 +6,8 @@
 #include <cmath>
 #include <stdexcept>
 
+namespace AST
+{
 using MathProcedure = std::function<double(const std::vector<double>&)>;
 
 
@@ -39,4 +41,4 @@ public:
     const std::unordered_map<std::string, Operation>& getRegistry() const { return registry; }
 
 };
-
+};
