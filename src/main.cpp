@@ -63,7 +63,7 @@ static void fullTest(const std::string& text, AST::Environment& env)
     auto tokens = t.tokenize();
     AST::Parser p(tokens,registry);
 
-    AST::NodePtr parsedExpression = p.parseTokens();
+    AST::NodePtr parsedExpression = p.parseTokens()->simplify();
 
     std::cout << "Source Expression: " << text << "\n";
     std::cout << "Parsed Expression: " << parsedExpression->toString() << "\n";
