@@ -1,7 +1,5 @@
 #include <iostream>
-#include "TreeNodes.h"
-#include "Tokenizer.hpp"
-#include "Parser.hpp"
+#include "AST.hpp"
 
 constexpr double PI = 3.14159265358979323846;
 constexpr double E = 2.71828182845904523536;
@@ -97,7 +95,13 @@ int main() {
 
     env["x"] = 2.0;
     fullTest("5(10x)^2 + 5x + 2",env);
-    fullTest("3x + 2*3*3",env);
+    fullTest("(-2*3*3*3*3*3*3*3*3*3)x*x*x*x*x",env);
+    fullTest("-2*3*3*3*3x*3*3*3*3*3x*x*x*x*x",env);
+
+    fullTest("1-2-3",env);
+    fullTest("x-y-z",env);
+    fullTest("2^x^2^3",env);
+    fullTest("5x + 423 - 32 +2y*x",env);
 
     return 0;
 }

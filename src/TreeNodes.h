@@ -1,6 +1,7 @@
 #pragma once
 #include "Node.hpp"
 #include "Operators.hpp"
+#include <algorithm>
 
 
 namespace AST
@@ -9,7 +10,7 @@ namespace AST
 class NumberNode : public Node {
     double value;
 public:
-    NumberNode(double val) : value(val) {}
+    NumberNode(double val) : value(val) {arguments = {}; father = nullptr;}
     NumberNode(const std::string& val)
     {
         try
@@ -22,15 +23,22 @@ public:
         catch (const std::out_of_range& e) {
             std::cout << "Error: Number is too large for the target type.\n";
         }
+        arguments = {}; father = nullptr;
     }
+    NumberNode(const NumberNode& other) : value(other.value) {arguments = {}; father = nullptr;}
+    NumberNode(double val, Node* parent) : value(val) {arguments = {}; father = parent;}
+
     std::string toString() const override { return std::to_string(value); }
     double evaluate(const Environment&) const override { return value; }
+    NodePtr simplifyStep() override { return std::make_shared<NumberNode>(value); }
 };
 
 class VariableNode : public Node {
     std::string name;
 public:
-    VariableNode(std::string name) : name(std::move(name)) {}
+    VariableNode(const std::string& name) : name(std::move(name)) {arguments = {}; father = nullptr;}
+    VariableNode(const VariableNode& other) : name(other.name) {arguments = {}; father = nullptr;}
+    VariableNode(const std::string& name, Node* parent) : name(name) {arguments = {}; father = parent;}
     std::string toString() const override { return name; }
 
     //method that simply looks up the variables' value
@@ -39,46 +47,27 @@ public:
         auto pair = env.find(name);
         return (pair != env.end()) ? pair->second : 0.0;
     }
+    NodePtr simplifyStep() override { return std::make_shared<VariableNode>(name); }
+
 };
 
 class OperatorNode : public Node {
     std::string op;
-    std::vector<NodePtr> arguments;
     const OperationRegistry& procedureRegistry;
 
+    // Helper function to flatten arguments of the same operator, useful for associative operations like addition and multiplication
+    static std::vector<NodePtr> flattenArgumentsWithSharedOperator(const std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry);
+    static std::shared_ptr<OperatorNode> populateTreeFromVectorUsingSharedOperator(std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry);
+
 public:
-    OperatorNode(std::string op, std::vector<NodePtr> args, const OperationRegistry& registry)
-        : op(std::move(op)), arguments(std::move(args)), procedureRegistry(registry) {
-    }
+    OperatorNode(std::string op, std::vector<NodePtr> args, const OperationRegistry& registry);
+    OperatorNode(std::string op, std::vector<NodePtr> args,Node* parent, const OperationRegistry& registry);
 
-    std::string toString() const override {
-        // Unary operator: op(arg)
-        if (arguments.size() == 1) {
-            return op + "(" + arguments[0]->toString() + ")";
-        }
-        // Binary operator: arg1 op arg2
-        if (arguments.size() == 2) {
-            return arguments[0]->toString() + " " + op + " " + arguments[1]->toString();
-        }
-        
-        std::string str = "(";
-        for (const auto& arg : arguments)
-        {
-            str += arg->toString() + " ";
-        }
-        str += ")";
-        return str;
-    }
+    std::string toString() const override;
+    double evaluate(const Environment& env) const override;
 
-    double evaluate(const Environment& env) const override {
-        // Evaluate all child nodes first, this ensures nested operations and functions get evaluated first
-        std::vector<double> evaluatedArgs;
-        for (const auto& child : arguments) {
-            evaluatedArgs.push_back(child->evaluate(env));
-        }
-
-        // Look up in the registry and calculate the final result
-        return procedureRegistry.execute(op, evaluatedArgs);
-    }
+    NodePtr simplifyStep() override;
+    const std::vector<NodePtr>& getArguments() const { return arguments; }
 };
+    
 };

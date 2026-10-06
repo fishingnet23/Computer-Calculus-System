@@ -120,6 +120,24 @@ std::vector<Token> Tokenizer::tokenize()
                 i++; // skip the next token since we just inserted a new one
             }
         }
+        else if(token.type == TokenType::UNKNOWN && token.value == "-")
+        {
+            // check if the next token is a literal or identifier, if it is, change the token to a unary minus operator
+            if(i+1 < res.size() && (res[i+1].type == TokenType::LITERAL || res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET))
+            {
+                // if the previous token is a literal or identifier, x-y = x+(-y) by definition, so we insert a plus operator before the unary minus operator
+                if(i > 0 && (res[i-1].type == TokenType::LITERAL || res[i-1].type == TokenType::IDENTIFIER || res[i-1].type == TokenType::R_BRACKET))
+                {
+                    res.insert(res.begin() + i, Token(TokenType::UNKNOWN, "+"));
+                    i++;
+                }
+                res[i] = Token(TokenType::LITERAL, "-1"); // change the token to a unary minus operator
+                // change the token to a unary minus operator
+                
+                i++;
+                res.insert(res.begin() + i, Token(TokenType::UNKNOWN, "*"));
+            }
+        }
     }
 
     return res;

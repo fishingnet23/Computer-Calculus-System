@@ -11,7 +11,7 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
     int bestPriority = std::numeric_limits<int>::max();
 
     if (tokens.size() < end || start > tokens.size() || start >= end)
-        throw std::runtime_error("out of bounds!");
+        throw std::runtime_error("out of bounds!" + std::to_string(start) + " " + std::to_string(end) + " " + std::to_string(tokens.size()));
 
     for (size_t i = start; i < end; ++i)
     {
@@ -39,14 +39,20 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
         if (pair == registry.getRegistry().end())
             continue;
 
-        int priority = pair->second.precedence;
+        int priority = pair->second->precedence;
+        const B_Operation* b_op = dynamic_cast<const B_Operation*>(pair->second.get());
+        bool r_associative = b_op!=nullptr && b_op->hasProperty(B_Operation::Property::RIGHT_ASSOCIATIVE);
+        bool l_associative = b_op!=nullptr && b_op->hasProperty(B_Operation::Property::LEFT_ASSOCIATIVE);
 
-        if (priority < bestPriority)
+        // If the operator is left associative, we want to consider the right most operator as the root.
+        // Otherwise, we can consider the left most operator as the root (implicit right associativity).
+
+        if (priority < bestPriority || (priority == bestPriority && l_associative ))
         {
             bestPriority = priority;
             result.token = &token;
             result.index = i;
-            result.op = &pair->second;
+            result.op = pair->second.get();
         }
     }
 
@@ -77,7 +83,7 @@ bool Parser::isWrappedInBrackets(size_t start, size_t end)
 
         // The first pair closes before the end,
         // meaning these aren't wrapping the whole expression.
-        if (depth == 0 && i != end - 1)
+        if (depth <= 0 && i != end - 1)
             return false;
     }
 
@@ -119,10 +125,27 @@ NodePtr Parser::parseTokens(size_t start, size_t end)
 
     if (root.op->format == Operation::Format::INFIX)
     {
+        // This is a binary operator, so we will try to apply smart parsing rules like associativity and precedence.
         NodePtr left = parseTokens(start, root.index);
         NodePtr right = parseTokens(root.index + 1, end);
-        rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<NodePtr>{ left,right },registry);
-    }
+        const B_Operation* b_op = dynamic_cast<const B_Operation*>(root.op);
+        std::vector<NodePtr> args;
+
+        if (b_op && b_op->hasProperty(B_Operation::Property::COMMUTATIVE))
+        {
+            // If the operator is commutative, we can sort the arguments to make the tree more canonical.
+            // This is useful for simplification and comparison of expressions.
+            if (left->toString() > right->toString())
+                args = { right,left };
+            else
+                args = { left,right };
+        }
+        else
+        {
+            args = { left,right };
+        }
+        rootNode = std::make_shared<OperatorNode>(root.token->value, args,registry);
+    }   
     else if (root.op->format == Operation::Format::PREFIX)
     {
         NodePtr inner = parseTokens(root.index+1,end);

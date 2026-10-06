@@ -1,4 +1,4 @@
-#include "ASTTree.hpp"
+#include "AST.hpp"
 namespace AST
 {
 NodePtr Tree::parseTokens(const std::vector<Token> &tokens, const OperationRegistry &registry)
