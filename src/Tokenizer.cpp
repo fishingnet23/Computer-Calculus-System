@@ -28,8 +28,13 @@ Token Tokenizer::extractIdentifier()
         (src[pos] >= '0' && src[pos] <= '9') ||
         src[pos] == '_'))
     {
+
         token += src[pos];
         pos++;
+        if(registry.getOperation(token) != nullptr)
+            return Token(TokenType::OPERATION, token);
+        else if(Environment::isCommonIdentifier(token))
+            return Token(TokenType::IDENTIFIER,token);
     }
     return Token(TokenType::IDENTIFIER, token);
 }
@@ -52,7 +57,8 @@ Token Tokenizer::extractUnknown()
 
         token += current;
         pos++;
-        
+        if(registry.getOperation(token) != nullptr)
+            return Token(TokenType::OPERATION, token);
     }
 
     return Token(TokenType::UNKNOWN, token);
@@ -116,8 +122,26 @@ std::vector<Token> Tokenizer::tokenize()
             if(i+1 < res.size() && (res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET))
             {
                 // insert a multiplication operator between the two tokens
-                res.insert(res.begin() + i + 1, Token(TokenType::UNKNOWN, "*"));
+                res.insert(res.begin() + i + 1, Token(TokenType::OPERATION, "*"));
                 i++; // skip the next token since we just inserted a new one
+            }
+        }
+        else if(token.value == "-")
+        {
+            // check if the next token is a literal or identifier, if it is, change the token to a unary minus operator
+            if(i+1 < res.size() && (res[i+1].type == TokenType::LITERAL || res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET))
+            {
+                // if the previous token is a literal or identifier, x-y = x+(-y) by definition, so we insert a plus operator before the unary minus operator
+                if(i > 0 && (res[i-1].type == TokenType::LITERAL || res[i-1].type == TokenType::IDENTIFIER || res[i-1].type == TokenType::R_BRACKET))
+                {
+                    res.insert(res.begin() + i, Token(TokenType::OPERATION, "+"));
+                    i++;
+                }
+                res[i] = Token(TokenType::LITERAL, "-1"); // change the token to a unary minus operator
+                // change the token to a unary minus operator
+                
+                i++;
+                res.insert(res.begin() + i, Token(TokenType::OPERATION, "*"));
             }
         }
     }

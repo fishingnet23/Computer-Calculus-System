@@ -1,4 +1,4 @@
-#include "ASTTree.hpp"
+#include "AST.hpp"
 namespace AST
 {
 NodePtr Tree::parseTokens(const std::vector<Token> &tokens, const OperationRegistry &registry)
@@ -9,7 +9,7 @@ NodePtr Tree::parseTokens(const std::vector<Token> &tokens, const OperationRegis
 
 Tree::Tree(const std::string &src, const OperationRegistry &registry)
 {
-    Tokenizer tokenizer(src);
+    Tokenizer tokenizer(src,registry);
     auto tokens = tokenizer.tokenize();
     root = parseTokens(tokens, registry);
 }

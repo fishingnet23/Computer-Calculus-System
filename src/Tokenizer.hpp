@@ -13,7 +13,7 @@ enum class TokenType
 	R_BRACKET = 1,
 	IDENTIFIER = 2,
 	LITERAL = 3,
-	
+	OPERATION = 4,
 };
 
 class Token
@@ -21,7 +21,6 @@ class Token
 public:
 	TokenType type;
 	std::string value;
-
 	Token(TokenType t, const std::string& v) :type(t), value(v) {}
 };
 
@@ -36,6 +35,8 @@ inline std::ostream& operator <<(std::ostream& out, const TokenType& type)
 		out << "IDENTIFIER";
 	else if (type == TokenType::LITERAL)
 		out << "LITERAL";
+	else if (type == TokenType::OPERATION)
+		out	<< "OPERATION";
 	else
 		out << "UNKNOWN";
 	return out;
@@ -53,6 +54,8 @@ private:
 	std::string src;
 	std::size_t pos = 0;
 
+	const OperationRegistry& registry;
+
 	void skipWhitespace();
 	
     Token extractLiteral();
@@ -60,13 +63,13 @@ private:
 	Token extractUnknown();
 public:
 
-	Tokenizer(const std::string& src)
+	Tokenizer(const std::string& src,const OperationRegistry& registry):registry(registry)
 	{
 		this->src = src;
 		this->pos = 0;
 	}
 
-    Tokenizer(const std::string& src, int p):src(src),pos(p){}
+    Tokenizer(const std::string& src, int p, const OperationRegistry& registry):src(src),pos(p),registry(registry){}
 
 	void setSrc(const std::string& src){this->src = src;}
 	std::string getSrc() const { return src; }

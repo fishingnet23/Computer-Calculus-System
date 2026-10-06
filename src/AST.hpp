@@ -31,6 +31,11 @@ public:
             return 0.0;
     }
 
-
+    void simplify()
+    {
+        if(!root)
+            return;
+        root = root->simplify();
+    }
 };
 }
