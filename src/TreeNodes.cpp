@@ -36,6 +36,25 @@ std::shared_ptr<OperatorNode> OperatorNode::populateTreeFromVectorUsingSharedOpe
 
 }
 
+bool OperatorNode::equals(const OperatorNode *other) const
+{
+    if(op!=other->op || arguments.size()!=other->arguments.size())
+        return false;
+    
+    bool equal = true;
+
+    for(size_t i=0;i<arguments.size();i++)
+    {
+        if(!arguments[i].get()->equals(other->arguments[i].get()))
+        {
+            equal = false;
+            break;
+        }
+    }
+
+    return equal;
+}
+
 OperatorNode::OperatorNode(std::string op, std::vector<NodePtr> args, const OperationRegistry &registry): op(std::move(op)), procedureRegistry(registry) 
 {
     arguments = std::move(args);

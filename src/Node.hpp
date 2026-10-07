@@ -11,16 +11,34 @@
 
 namespace AST
 {
-using Environment = std::unordered_map<std::string, double>;
-
-void static printEnvironment(const Environment& env)
+class Environment
 {
-    std::map<std::string, double> sorted_env(env.begin(), env.end());
-    for (const auto& pair : sorted_env)
+    std::unordered_map<std::string, double> data;
+public:
+    explicit Environment(const std::vector<std::string>& tokens)
     {
-        std::cout << pair.first << ": " << pair.second << '\n';
+        for(const std::string& arg:tokens)
+        {
+            data[arg] = 0.0;
+        }
+    }
+    double& operator[](const std::string& token)
+    {
+        return data[token];
+    }
+    void print()
+    {
+        std::map<std::string, double> sorted_env(data.begin(), data.end());
+        for (const auto& pair : sorted_env)
+        {
+            std::cout << pair.first << ": " << pair.second << '\n';
+        }
     }
 }
+
+
+
+
 class Node {
     static constexpr int MAX_SIMPLIFICATION_STEPS = 50; // Maximum number of simplification steps to avoid infinite loops
 protected:
@@ -35,6 +53,7 @@ public:
 
     void setFatherNode(Node* parent) { father = parent; }
     Node* getFatherNode() const { return father; }
+    bool virtual equals(const Node* other) const = 0;
 };
 
 using NodePtr = std::shared_ptr<Node>;

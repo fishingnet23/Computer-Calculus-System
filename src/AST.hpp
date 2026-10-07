@@ -35,7 +35,7 @@ public:
     {
         if(!root)
             return;
-        root = root->simplifyStep();
+        root = root->simplify();
     }
 };
 }

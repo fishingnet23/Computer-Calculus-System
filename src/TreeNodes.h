@@ -31,6 +31,13 @@ public:
     std::string toString() const override { return std::to_string(value); }
     double evaluate(const Environment&) const override { return value; }
     NodePtr simplifyStep() override { return std::make_shared<NumberNode>(value); }
+    bool equals(const Node* other) const override
+    {
+        const auto num = dynamic_cast<const NumberNode*>(other);
+        if(!num)
+            return false;
+        return value == num->value;
+    }
 };
 
 class VariableNode : public Node {
@@ -48,7 +55,13 @@ public:
         return (pair != env.end()) ? pair->second : 0.0;
     }
     NodePtr simplifyStep() override { return std::make_shared<VariableNode>(name); }
-
+    bool equals(const Node* other) const override
+    {
+        const auto var = dynamic_cast<const VariableNode*>(other);
+        if(!var)
+            return false;
+        return name == var->name;
+    }
 };
 
 class OperatorNode : public Node {
@@ -59,6 +72,8 @@ class OperatorNode : public Node {
     static std::vector<NodePtr> flattenArgumentsWithSharedOperator(const std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry);
     static std::shared_ptr<OperatorNode> populateTreeFromVectorUsingSharedOperator(std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry);
 
+    bool equals(const OperatorNode* other) const;
+
 public:
     OperatorNode(std::string op, std::vector<NodePtr> args, const OperationRegistry& registry);
     OperatorNode(std::string op, std::vector<NodePtr> args,Node* parent, const OperationRegistry& registry);
@@ -68,6 +83,14 @@ public:
 
     NodePtr simplifyStep() override;
     const std::vector<NodePtr>& getArguments() const { return arguments; }
+
+    bool equals(const Node* other) const override
+    {
+        const auto op = dynamic_cast<const OperatorNode*>(other);
+        if(!op)
+            return false;
+        return equals(op);
+    }
 };
     
 };
