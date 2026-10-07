@@ -137,11 +137,17 @@ NodePtr OperatorNode::simplifyStep()
         }
         double result = procedureRegistry.execute(op, argsValues);
         return std::make_shared<NumberNode>(result);
+    
+    
     }
+
+    // try identities
+    auto temp =  std::make_shared<OperatorNode>(op, simplifiedArgs, procedureRegistry);
+    auto identity = procedureRegistry.simplifyWithIdentities(temp);
 
     const Operation* opPtr = procedureRegistry.getOperation(op);
     const B_Operation* b_op = opPtr? dynamic_cast<const B_Operation*>(opPtr) : nullptr;
-
+    
     if(b_op == nullptr) {
         // not a binary operation, just return a new OperatorNode with the simplified arguments
         return std::make_shared<OperatorNode>(op, simplifiedArgs, procedureRegistry);

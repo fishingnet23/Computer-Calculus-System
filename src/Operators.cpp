@@ -1,25 +1,36 @@
+#pragma once
 #include "Operators.hpp"
+#include "TreeNodes.h"
 namespace AST
 {
 OperationRegistry::OperationRegistry()
 {
     // binary operators
-    auto add = B_Operation(1,[](const std::vector<double>& args) {
+    B_Operation add;
+    add.precedence = 1;
+    add.procedure = [](const std::vector<double>& args) {
         if (args.size() != 2) throw std::runtime_error("'+' requires 2 arguments");
-        return args[0] + args[1];
-        });
-    auto sub = B_Operation(1,[](const std::vector<double>& args) {
+            return args[0] + args[1];
+        };
+    
+    B_Operation sub;
+    sub.precedence = 1;
+    sub.procedure = [](const std::vector<double>& args) {
         if (args.size() != 2) throw std::runtime_error("'-' requires 2 arguments");
-        return args[0] - args[1];
-        });
-    auto mul = B_Operation(2,[](const std::vector<double>& args) {
+            return args[0] - args[1];
+        };
+    B_Operation mul; 
+    mul.precedence = 2;
+    mul.procedure = [](const std::vector<double>& args) {
         if (args.size() != 2) throw std::runtime_error("'*' requires 2 arguments");
-        return args[0] * args[1];
-        });
-    auto pow = B_Operation(3,[](const std::vector<double>& args) {
+            return args[0] * args[1];
+        };
+    B_Operation pow;
+    pow.precedence = 3;
+    pow.procedure = [](const std::vector<double>& args) {
         if (args.size() != 2) throw std::runtime_error("'^' requires 2 arguments");
-        return std::pow(args[0], args[1]);
-        });
+            return std::pow(args[0], args[1]);
+        };
 
     add.properties.push_back(B_Operation::PropertyFlag(B_Operation::Property::COMMUTATIVE));
     add.properties.push_back(B_Operation::PropertyFlag(B_Operation::Property::LEFT_ASSOCIATIVE));
@@ -42,24 +53,45 @@ OperationRegistry::OperationRegistry()
     // unary operators
 
     // unary minus, negates the value of its single argument unlike subtraction
-    registry["unary-"] = std::make_unique<Operation>(Operation(10,[](const std::vector<double>& args) {
+    Operation unaryMinus;
+    unaryMinus.precedence = 10;
+    unaryMinus.procedure = [](const std::vector<double>& args) {
         if (args.size() != 1) throw std::runtime_error("'-' requires 1 argument"); 
         return -args[0];
-        },Operation::Format::PREFIX));
+        };
+    unaryMinus.format = Operation::Format::PREFIX;
 
-    registry["sin"] = std::make_unique<Operation>(Operation(10,[](const std::vector<double>& args) {
-        if (args.size() != 1) throw std::runtime_error("'sin' requires 1 argument");
+    Operation sin;
+    sin.precedence = 10;
+    sin.procedure = [](const std::vector<double>& args) {
+       if (args.size() != 1) throw std::runtime_error("'sin' requires 1 argument");
         return std::sin(args[0]);
-        },Operation::Format::PREFIX));
-    registry["cos"] = std::make_unique<Operation>(Operation(10,[](const std::vector<double>& args) {
-        if (args.size() != 1) throw std::runtime_error("'cos' requires 1 argument");
+        };
+    sin.format = Operation::Format::PREFIX;
+    
+    Operation cos;
+    cos.precedence = 10;
+    cos.procedure = [](const std::vector<double>& args) {
+        if (args.size() != 1) throw std::runtime_error("'cos' requires 1 argument"); 
         return std::cos(args[0]);
-        }, Operation::Format::PREFIX));
-    registry["ln"] = std::make_unique<Operation>(Operation(10,[](const std::vector<double>& args) {
-        if (args.size() != 1) throw std::runtime_error("'ln' requires 1 argument");
-        return std::log(args[0]);
-        }, Operation::Format::PREFIX));
+        };
+    cos.format = Operation::Format::PREFIX;
 
+    
+
+    Operation ln;
+    ln.precedence = 10;
+    ln.procedure = [](const std::vector<double>& args) {
+        if (args.size() != 1) throw std::runtime_error("'ln' requires 1 argument"); 
+        return std::log(args[0]);
+        };
+    ln.format = Operation::Format::PREFIX;
+
+
+    registry["unary-"] = std::make_unique<Operation>(unaryMinus);
+    registry["sin"] = std::make_unique<Operation>(sin);
+    registry["cos"] = std::make_unique<Operation>(cos);
+    registry["ln"] = std::make_unique<Operation>(ln);
 }
 
 double OperationRegistry::execute(const std::string& opIdentifier, const std::vector<double>& args) const
@@ -70,7 +102,16 @@ double OperationRegistry::execute(const std::string& opIdentifier, const std::ve
     }
     return pair->second->procedure(args);
 }
-const Operation * OperationRegistry::getOperation(const std::string & op) const
+NodePtr OperationRegistry::simplifyWithIdentities(NodePtr op) const
+{
+
+    const Operation* operation = getOperation(op->getName());
+    if(!operation)
+        return op;
+    return operation->identityfn(op);
+}
+
+const Operation *OperationRegistry::getOperation(const std::string &op) const
 {
     auto pair = registry.find(op);
     return pair != registry.end() ? pair->second.get() : nullptr;
@@ -83,5 +124,14 @@ bool B_Operation::hasProperty(B_Operation::Property property) const
             return true;
     }
     return false;   
+}
+const B_Operation::PropertyFlag *B_Operation::getProperty(B_Operation::Property property) const
+{
+    for (const auto& propFlag : properties)
+    {
+        if (propFlag.property == property)
+            return &propFlag;
+    }
+    return nullptr;
 }
 };

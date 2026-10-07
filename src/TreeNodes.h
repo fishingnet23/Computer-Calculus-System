@@ -38,6 +38,7 @@ public:
             return false;
         return value == num->value;
     }
+    std::string getName() const override {return std::to_string(value);}
 };
 
 class VariableNode : public Node {
@@ -47,6 +48,8 @@ public:
     VariableNode(const VariableNode& other) : name(other.name) {arguments = {}; father = nullptr;}
     VariableNode(const std::string& name, Node* parent) : name(name) {arguments = {}; father = parent;}
     std::string toString() const override { return name; }
+    std::string getName() const override {return name;}
+
 
     //method that simply looks up the variables' value
     double evaluate(const Environment& env) const override {
@@ -68,6 +71,7 @@ class OperatorNode : public Node {
     std::string op;
     const OperationRegistry& procedureRegistry;
 
+
     // Helper function to flatten arguments of the same operator, useful for associative operations like addition and multiplication
     static std::vector<NodePtr> flattenArgumentsWithSharedOperator(const std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry);
     static std::shared_ptr<OperatorNode> populateTreeFromVectorUsingSharedOperator(std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry);
@@ -79,10 +83,14 @@ public:
     OperatorNode(std::string op, std::vector<NodePtr> args,Node* parent, const OperationRegistry& registry);
 
     std::string toString() const override;
+    const std::string& getOperand() const {return op;}
+    std::string getName() const override {return op;}
+
     double evaluate(const Environment& env) const override;
 
     NodePtr simplifyStep() override;
-    const std::vector<NodePtr>& getArguments() const { return arguments; }
+    const std::vector<NodePtr>& getArguments() const { return arguments; };
+    
 
     bool equals(const Node* other) const override
     {

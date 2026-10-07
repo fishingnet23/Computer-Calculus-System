@@ -7,11 +7,8 @@
 #include <cmath>
 #include <stdexcept>
 #include "Node.hpp"
-
 namespace AST
 {
-
-
 
 // object that holds all information about a mathematical operation in one unified place
 struct Operation {
@@ -19,9 +16,8 @@ struct Operation {
     virtual ~Operation() = default;
 
     using MathProcedure = std::function<double(const std::vector<double>&)>;
-    using SimplificationRule = std::function<NodePtr(const std::vector<NodePtr>&)>;
+    using IdentityApplier = std::function<NodePtr(NodePtr)>;
 
-    
     enum class Format
     {
         INFIX = 0,
@@ -31,14 +27,13 @@ struct Operation {
     };
 
     MathProcedure procedure;
-
     int precedence = 0;
-    Format format;
-    Operation():format(Format::INFIX){}
-    Operation(int precedence, const MathProcedure& procedure):precedence(precedence),procedure(procedure),format(Format::INFIX){}
-    Operation(int precedence, const MathProcedure& procedure, Format format) :precedence(precedence), procedure(procedure), format(format){}
+    Format format = Format::INFIX;
+    IdentityApplier identityfn = [](NodePtr op) -> NodePtr {
+        return op;
+    };
 
-};  
+};
 struct B_Operation : public Operation
 {
 
@@ -60,15 +55,9 @@ struct B_Operation : public Operation
         operator Property() const { return property; }
     };
 
-    std::vector<PropertyFlag> properties;
-
-    B_Operation(int precedence, const Operation::MathProcedure& procedure, Format format = Format::INFIX)
-        : Operation(precedence, procedure, format) {properties = {};}
-    B_Operation() : Operation() {properties = {};}
-    B_Operation(const Operation& op) : Operation(op) {properties = {};}
-    std::vector<PropertyFlag>&  getProperties() { return properties; }
+    std::vector<PropertyFlag> properties = {};
     bool hasProperty(B_Operation::Property property) const;
-
+    const PropertyFlag* getProperty(B_Operation::Property property) const;
 };
 
 class OperationRegistry {
@@ -78,6 +67,8 @@ public:
     OperationRegistry();
     // Lookup function to execute an operation
     double execute(const std::string& op, const std::vector<double>& args) const;
+    NodePtr simplifyWithIdentities(NodePtr op) const;
+
 
     const Operation* getOperation(const std::string& op) const;
 

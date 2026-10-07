@@ -52,6 +52,7 @@ public:
     std::shared_ptr<Node> simplify();
 
     void setFatherNode(Node* parent) { father = parent; }
+    virtual std::string getName() const = 0;
     Node* getFatherNode() const { return father; }
     bool virtual equals(const Node* other) const = 0;
 };
