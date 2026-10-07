@@ -15,17 +15,12 @@ class Environment
 {
     std::unordered_map<std::string, double> data;
 public:
-    explicit Environment(const std::vector<std::string>& tokens)
-    {
-        for(const std::string& arg:tokens)
-        {
-            data[arg] = 0.0;
-        }
-    }
-    double& operator[](const std::string& token)
-    {
-        return data[token];
-    }
+    Environment(){}
+    explicit Environment(const std::vector<std::string>& tokens);
+    double& operator[](const std::string& token) {return data[token];}
+    auto find(const std::string& token) const {return data.find(token);}
+    auto end() const {return data.end();}
+    auto begin() const {return data.begin();}
     void print()
     {
         std::map<std::string, double> sorted_env(data.begin(), data.end());
@@ -34,7 +29,7 @@ public:
             std::cout << pair.first << ": " << pair.second << '\n';
         }
     }
-}
+};
 
 
 
@@ -55,9 +50,15 @@ public:
     virtual std::string getName() const = 0;
     Node* getFatherNode() const { return father; }
     bool virtual equals(const Node* other) const = 0;
+    const std::vector<std::shared_ptr<Node>>& getArguments() const {return arguments;}
+
+    static int nodeRank(const std::shared_ptr<Node>& node);
+    static bool canonicalLess(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b);
 };
 
 using NodePtr = std::shared_ptr<Node>;
+
+
 
 
 };

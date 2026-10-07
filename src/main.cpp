@@ -12,14 +12,14 @@ int main() {
     
     std::cout<<"Enter an equation in calculator syntax : "<<std::endl;
     std::string equation;
-    std::cin >> equation;
+    std::getline(std::cin, equation);
     AST::Tree tree(equation,registry);
     tree.simplify();
     std::cout << tree.toString() << std::endl;
 
-    std::cout << "Enter variables seperated by commas: " << std::endl;
+    std::cout << "Enter variables and values seperated by commas: " << std::endl;
     std::string vars;
-    std::cin >> vars;
+    std::getline(std::cin, vars);
 
     std::vector<std::string> tokens;
     std::stringstream ss(vars);
@@ -31,6 +31,10 @@ int main() {
     }
     
     AST::Environment env(tokens);
+    env.print();
+
+    std::cout << "Evaluation: " << tree.evaluate(env)<<std::endl;
+
 
     return 0;
 }

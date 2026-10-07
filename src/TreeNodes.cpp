@@ -21,19 +21,22 @@ std::vector<NodePtr> OperatorNode::flattenArgumentsWithSharedOperator(const std:
 
 std::shared_ptr<OperatorNode> OperatorNode::populateTreeFromVectorUsingSharedOperator(std::vector<NodePtr> &args, const std::string &op, const OperationRegistry &registry)
 {
+
     if (args.empty()) {
         return nullptr;
     }
+
     if (args.size() == 1) {
         return std::dynamic_pointer_cast<OperatorNode>(args[0]);
     }
 
     auto root = std::make_shared<OperatorNode>(op, std::vector<NodePtr>{args[0], args[1]}, registry);
+
     for (size_t i = 2; i < args.size(); ++i) {
         root = std::make_shared<OperatorNode>(op, std::vector<NodePtr>{root, args[i]}, registry);
     }
-    return root;
 
+    return root;
 }
 
 bool OperatorNode::equals(const OperatorNode *other) const
@@ -87,8 +90,8 @@ std::string OperatorNode::toString() const
                 l_associative = b_op->hasProperty(B_Operation::Property::LEFT_ASSOCIATIVE);
             }
         }
-        // if(l_associative && r_associative)
-        //     return arguments[0]->toString() + " " + op + " " + arguments[1]->toString();
+        if(l_associative && r_associative)
+            return arguments[0]->toString() + " " + op + " " + arguments[1]->toString();
         return "(" + arguments[0]->toString() + " " + op + " " + arguments[1]->toString() + ")";
     }
     
@@ -145,6 +148,10 @@ NodePtr OperatorNode::simplifyStep()
     auto temp =  std::make_shared<OperatorNode>(op, simplifiedArgs, procedureRegistry);
     auto identity = procedureRegistry.simplifyWithIdentities(temp);
 
+    // the identity changed the structure of the node
+    if(!temp->equals(identity.get()))
+        return identity;
+
     const Operation* opPtr = procedureRegistry.getOperation(op);
     const B_Operation* b_op = opPtr? dynamic_cast<const B_Operation*>(opPtr) : nullptr;
     
@@ -155,28 +162,91 @@ NodePtr OperatorNode::simplifyStep()
     bool r_associative = b_op->hasProperty(B_Operation::Property::RIGHT_ASSOCIATIVE);
     bool l_associative = b_op->hasProperty(B_Operation::Property::LEFT_ASSOCIATIVE);
     bool commutative = b_op->hasProperty(B_Operation::Property::COMMUTATIVE);
-    if(commutative) {
-        std::sort(simplifiedArgs.begin(), simplifiedArgs.end(), [](const NodePtr& a, const NodePtr& b) {
-            return a->toString() < b->toString();
-        });
-    }
+    
 
     if(l_associative && r_associative) {
         auto flattenedArgs = flattenArgumentsWithSharedOperator(simplifiedArgs, op, procedureRegistry);
-        std::sort(flattenedArgs.begin(), flattenedArgs.end(), [](const NodePtr& a, const NodePtr& b) {
-            // const OperatorNode* opA = dynamic_cast<const OperatorNode*>(a.get());
-            // const OperatorNode* opB = dynamic_cast<const OperatorNode*>(b.get());
-            auto a_str = a->toString();
-            auto b_str = b->toString();
-            std::sort(a_str.begin(), a_str.end(), std::greater<char>());
-            std::sort(b_str.begin(), b_str.end(), std::greater<char>());
-            return a_str < b_str;
-        });
-        return populateTreeFromVectorUsingSharedOperator(flattenedArgs, op, procedureRegistry);
+        if(commutative)
+            std::sort(flattenedArgs.begin(),flattenedArgs.end(),Node::canonicalLess);
+        auto groups = groupLikeTerms(flattenedArgs);
+
+        std::vector<NodePtr> reducedGroups;
+
+        for (const auto& group : groups)
+            reducedGroups.push_back(reduceGroup(group,op,procedureRegistry));
+
+        return populateTreeFromVectorUsingSharedOperator(reducedGroups,op,procedureRegistry);
+    }
+
+    if(commutative) {
+        std::sort(simplifiedArgs.begin(),simplifiedArgs.end(),Node::canonicalLess);
     }
 
     // final default case, return a new OperatorNode with the simplified arguments
     return std::make_shared<OperatorNode>(op, simplifiedArgs, procedureRegistry);
 }
 
+std::vector<std::vector<NodePtr>> OperatorNode::groupLikeTerms(const std::vector<NodePtr> &args)
+{
+    std::vector<std::vector<NodePtr>> groups;
+
+    for (const auto& arg : args)
+    {
+        bool added = false;
+
+        for (auto& group : groups)
+        {
+            const auto* a = dynamic_cast<const VariableNode*>(arg.get());
+            const auto* b = dynamic_cast<const VariableNode*>(group[0].get());
+
+            if (a && b &&
+                a->getName() == b->getName() &&
+                a->getDegree() == b->getDegree())
+            {
+                group.push_back(arg);
+                added = true;
+                break;
+            }
+
+            // Same constant category
+            if (dynamic_cast<const NumberNode*>(arg.get()) &&
+                dynamic_cast<const NumberNode*>(group[0].get()))
+            {
+                group.push_back(arg);
+                added = true;
+                break;
+            }
+        }
+
+        if (!added)
+            groups.push_back({arg});
+    }
+
+    return groups;
+}
+NodePtr OperatorNode::reduceGroup(
+    const std::vector<NodePtr>& group,
+    const std::string& op,
+    const OperationRegistry& registry)
+{
+    if (group.empty())
+        return nullptr;
+
+    NodePtr result = group[0];
+
+    for (size_t i = 1; i < group.size(); ++i)
+    {
+        auto pair = std::make_shared<OperatorNode>(
+            op,
+            std::vector<NodePtr>{result, group[i]},
+            registry
+        );
+
+        result = registry.simplifyWithIdentities(pair);
+    }
+
+    return result;
+}
 };
+
+
