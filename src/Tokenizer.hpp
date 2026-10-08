@@ -14,14 +14,19 @@ enum class TokenType
 	IDENTIFIER = 2,
 	LITERAL = 3,
 	OPERATION = 4,
+	PREFIX = 5,
 };
 
 class Token
 {
 public:
 	TokenType type;
+	OpDefiniton::Format format;
 	std::string value;
-	Token(TokenType t, const std::string& v) :type(t), value(v) {}
+
+	Token(TokenType t, const std::string& v, const OpDefiniton::Format& f) :type(t), value(v),format(f) {}
+	Token(TokenType t, const std::string& v) :type(t), value(v),format(OpDefiniton::Format::NONE) {}
+
 };
 
 inline std::ostream& operator <<(std::ostream& out, const TokenType& type)
@@ -37,6 +42,8 @@ inline std::ostream& operator <<(std::ostream& out, const TokenType& type)
 		out << "LITERAL";
 	else if (type == TokenType::OPERATION)
 		out	<< "OPERATION";
+	else if (type == TokenType::PREFIX)
+		out << "PREFIX";
 	else
 		out << "UNKNOWN";
 	return out;

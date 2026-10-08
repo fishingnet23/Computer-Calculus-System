@@ -12,9 +12,10 @@ inline std::ostream& operator <<(std::ostream& out, const AST::Environment& env)
     return out;
 }
 
-std::shared_ptr<Node> Node::simplify()
+std::shared_ptr<Node> Symbol::simplify() const
 {
     size_t maximumLength = this->toString().length();
+    std::cout << "presimplification: " << this->toString() << "\n";
     std::shared_ptr<Node> simplifiedNode = this->simplifyStep();
     std::cout << "Simplification pass 1: " << simplifiedNode->toString() << "\n";
 
@@ -27,11 +28,15 @@ std::shared_ptr<Node> Node::simplify()
         }
         else
             maximumLength = simplifiedNode->toString().length();
-        simplifiedNode = simplifiedNode->simplifyStep();
+        if(const Symbol* symbol = simplifiedNode->asSymbol())
+        {
+            simplifiedNode = symbol->simplifyStep();
+        }
+        
         std::cout << "simplification pass " << i+1 << ": " << simplifiedNode->toString() << "\n";
         
     }
-    return simplifiedNode->simplifyStep(); // try one last time, let simplify step handle what to do if it can't simplify further
+    return simplifiedNode;
 }
 Environment::Environment(const std::vector<std::string> &tokens)
 {
@@ -67,13 +72,13 @@ Environment::Environment(const std::vector<std::string> &tokens)
 }
 int Node::nodeRank(const std::shared_ptr<Node> &node)
 {
-    if (dynamic_cast<NumberNode*>(node.get()))
+    if (node->type == NodeType::Number)
         return 0;
 
-    if (dynamic_cast<VariableNode*>(node.get()))
+    if (node->type == NodeType::Variable)
         return 1;
 
-    if (dynamic_cast<OperatorNode*>(node.get()))
+    if (node->type == NodeType::Operator)
         return 2;
 
     return 3;
@@ -86,20 +91,19 @@ bool Node::canonicalLess(const std::shared_ptr<Node> &a, const std::shared_ptr<N
     if (rankA != rankB)
         return rankA < rankB;
 
-    auto varA = dynamic_cast<const VariableNode*>(a.get());
-    auto varB = dynamic_cast<const VariableNode*>(b.get());
+    if(a->type != NodeType::Variable || b->type != NodeType::Variable)
+        return a->toString() < b->toString();
 
-    if (varA && varB)
-    {
-        if (varA->getName() != varB->getName())
-            return varA->getName() < varB->getName();
+    const auto* varA = static_cast<const VariableNode*>(a.get());
+    const auto* varB = static_cast<const VariableNode*>(b.get());
 
-        if (varA->getDegree() != varB->getDegree())
-            return varA->getDegree() < varB->getDegree();
+    if (varA->getName() != varB->getName())
+        return varA->getName() < varB->getName();
 
-        return varA->getCoeffecient() < varB->getCoeffecient();
-    }
+    if (varA->getDegree() != varB->getDegree())
+        return varA->getDegree() < varB->getDegree();
 
-    return a->toString() < b->toString();
+    return varA->getCoeffecient() < varB->getCoeffecient();
+
 }
 };

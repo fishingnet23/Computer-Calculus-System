@@ -11,15 +11,16 @@ namespace AST
 {
 
 // object that holds all information about a mathematical operation in one unified place
-struct Operation {
+struct OpDefiniton {
 
-    virtual ~Operation() = default;
+    virtual ~OpDefiniton() = default;
 
     using MathProcedure = std::function<double(const std::vector<double>&)>;
     using IdentityApplier = std::function<NodePtr(NodePtr)>;
 
     enum class Format
     {
+        NONE = -1,
         INFIX = 0,
         PREFIX = 1,
         POSTFIX = 2,
@@ -34,7 +35,7 @@ struct Operation {
     };
 
 };
-struct B_Operation : public Operation
+struct B_OpDefinition : public OpDefiniton
 {
 
     enum class Property
@@ -48,21 +49,21 @@ struct B_Operation : public Operation
     struct PropertyFlag
     {
         Property property;
-        std::vector<Operation*> applicableOperations;
+        std::vector<OpDefiniton*> applicableOperations;
         PropertyFlag(Property prop) : property(prop) {applicableOperations = {};}
-        PropertyFlag(Property prop, const std::vector<Operation*>& applicableOps) : property(prop), applicableOperations(applicableOps) {}
-        void addOperation(Operation* op) { applicableOperations.push_back(op); }
+        PropertyFlag(Property prop, const std::vector<OpDefiniton*>& applicableOps) : property(prop), applicableOperations(applicableOps) {}
+        void addOperation(OpDefiniton* op) { applicableOperations.push_back(op); }
         operator Property() const { return property; }
     };
 
     std::vector<PropertyFlag> properties = {};
-    bool hasProperty(B_Operation::Property property) const;
-    const PropertyFlag* getProperty(B_Operation::Property property) const;
+    bool hasProperty(B_OpDefinition::Property property) const;
+    const PropertyFlag* getProperty(B_OpDefinition::Property property) const;
 };
 
 class OperationRegistry {
 private:
-    std::unordered_map<std::string, std::unique_ptr<Operation>> registry;
+    std::unordered_map<std::string, std::unique_ptr<OpDefiniton>> registry;
 public:
     OperationRegistry();
     // Lookup function to execute an operation
@@ -70,9 +71,11 @@ public:
     NodePtr simplifyWithIdentities(NodePtr op) const;
 
 
-    const Operation* getOperation(const std::string& op) const;
+    const OpDefiniton* getOperation(const std::string& op) const;
+    OpDefiniton::Format getOperationFormat(const std::string& op) const;
 
-    const std::unordered_map<std::string, std::unique_ptr<Operation>>& getRegistry() const { return registry; }
+
+    const std::unordered_map<std::string, std::unique_ptr<OpDefiniton>>& getRegistry() const { return registry; }
 
 };
 };

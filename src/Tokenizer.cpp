@@ -31,8 +31,9 @@ Token Tokenizer::extractIdentifier()
 
         token += src[pos];
         pos++;
-        if(registry.getOperation(token) != nullptr)
-            return Token(TokenType::OPERATION, token);
+        auto format = registry.getOperationFormat(token);
+        if(format != OpDefiniton::Format::NONE)
+            return Token(TokenType::OPERATION, token, format);
         else if(Environment::isCommonIdentifier(token))
             return Token(TokenType::IDENTIFIER,token);
     }
@@ -57,8 +58,10 @@ Token Tokenizer::extractUnknown()
 
         token += current;
         pos++;
-        if(registry.getOperation(token) != nullptr)
-            return Token(TokenType::OPERATION, token);
+
+        auto format = registry.getOperationFormat(token);
+        if(format != OpDefiniton::Format::NONE)
+            return Token(TokenType::OPERATION, token, format);
     }
 
     return Token(TokenType::UNKNOWN, token);
@@ -115,11 +118,13 @@ std::vector<Token> Tokenizer::tokenize()
     for(size_t i=0;i<res.size();i++)
     {
         auto& token = res[i];
-
+        
         if(token.type == TokenType::LITERAL || token.type == TokenType::IDENTIFIER || token.type == TokenType::R_BRACKET)
         {
+            if(i+1<res.size())
+                std::cout<< res[i+1].type <<" "<< (int)res[i+1].format;
             // check if the next token is an identifier/bracket, if it is, implicit multiplication
-            if(i+1 < res.size() && (res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET))
+            if(i+1 < res.size() && (res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET || res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefiniton::Format::PREFIX))
             {
                 // insert a multiplication operator between the two tokens
                 res.insert(res.begin() + i + 1, Token(TokenType::OPERATION, "*"));
@@ -129,7 +134,7 @@ std::vector<Token> Tokenizer::tokenize()
         else if(token.value == "-")
         {
             // check if the next token is a literal or identifier, if it is, change the token to a unary minus operator
-            if(i+1 < res.size() && (res[i+1].type == TokenType::LITERAL || res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET))
+            if(i+1 < res.size() && (res[i+1].type == TokenType::LITERAL || res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET|| res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefiniton::Format::PREFIX))
             {
                 // if the previous token is a literal or identifier, x-y = x+(-y) by definition, so we insert a plus operator before the unary minus operator
                 if(i > 0 && (res[i-1].type == TokenType::LITERAL || res[i-1].type == TokenType::IDENTIFIER || res[i-1].type == TokenType::R_BRACKET))

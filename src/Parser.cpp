@@ -40,9 +40,9 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
             continue;
 
         int priority = pair->second->precedence;
-        const B_Operation* b_op = dynamic_cast<const B_Operation*>(pair->second.get());
-        bool r_associative = b_op!=nullptr && b_op->hasProperty(B_Operation::Property::RIGHT_ASSOCIATIVE);
-        bool l_associative = b_op!=nullptr && b_op->hasProperty(B_Operation::Property::LEFT_ASSOCIATIVE);
+        const B_OpDefinition* b_op = dynamic_cast<const B_OpDefinition*>(pair->second.get());
+        bool r_associative = b_op!=nullptr && b_op->hasProperty(B_OpDefinition::Property::RIGHT_ASSOCIATIVE);
+        bool l_associative = b_op!=nullptr && b_op->hasProperty(B_OpDefinition::Property::LEFT_ASSOCIATIVE);
 
         // If the operator is left associative, we want to consider the right most operator as the root.
         // Otherwise, we can consider the left most operator as the root (implicit right associativity).
@@ -123,15 +123,15 @@ NodePtr Parser::parseTokens(size_t start, size_t end)
             std::to_string(start) + ", " + std::to_string(end) + "]");
     }
 
-    if (root.op->format == Operation::Format::INFIX)
+    if (root.op->format == OpDefiniton::Format::INFIX)
     {
         // This is a binary operator, so we will try to apply smart parsing rules like associativity and precedence.
         NodePtr left = parseTokens(start, root.index);
         NodePtr right = parseTokens(root.index + 1, end);
-        const B_Operation* b_op = dynamic_cast<const B_Operation*>(root.op);
+        const B_OpDefinition* b_op = dynamic_cast<const B_OpDefinition*>(root.op);
         std::vector<NodePtr> args;
 
-        if (b_op && b_op->hasProperty(B_Operation::Property::COMMUTATIVE))
+        if (b_op && b_op->hasProperty(B_OpDefinition::Property::COMMUTATIVE))
         {
             // If the operator is commutative, we can sort the arguments to make the tree more canonical.
             // This is useful for simplification and comparison of expressions.
@@ -146,12 +146,12 @@ NodePtr Parser::parseTokens(size_t start, size_t end)
         }
         rootNode = std::make_shared<OperatorNode>(root.token->value, args,registry);
     }   
-    else if (root.op->format == Operation::Format::PREFIX)
+    else if (root.op->format == OpDefiniton::Format::PREFIX)
     {
         NodePtr inner = parseTokens(root.index+1,end);
         rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<NodePtr>{inner}, registry);
     }
-    else if (root.op->format == Operation::Format::POSTFIX)
+    else if (root.op->format == OpDefiniton::Format::POSTFIX)
     {
         NodePtr inner = parseTokens(start, root.index);
         rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<NodePtr>{ inner }, registry);

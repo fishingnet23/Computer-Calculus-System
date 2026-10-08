@@ -14,7 +14,7 @@ private:
 	struct OperatorContext
 	{
 		const Token* token;
-		const Operation* op;
+		const OpDefiniton* op;
 		size_t index;
 		int precedence;
 	};

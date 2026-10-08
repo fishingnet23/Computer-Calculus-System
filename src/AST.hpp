@@ -35,7 +35,10 @@ public:
     {
         if(!root)
             return;
-        root = root->simplify();
+        const auto* symbol = root->asSymbol();
+        if(!symbol)
+            return;
+        root = symbol->simplify();
     }
 };
 }
