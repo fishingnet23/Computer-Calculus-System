@@ -1,53 +1,61 @@
 #include "TreeNodes.h"
 namespace AST
 {
-std::vector<NodePtr> OperatorNode::flattenArgumentsWithSharedOperator(const std::vector<NodePtr> &args, const std::string &op, const OperationRegistry &registry)
-    {
+
+
+std::vector<NodePtr> OperatorNode::flattenArgumentsWithSharedOperator(
+    const std::vector<NodePtr>& args,
+    const std::string& op,
+    const OperationRegistry& registry)
+{
     std::vector<NodePtr> flattenedArgs;
-    for (const auto& arg : args) {
-        if (auto opNode = std::dynamic_pointer_cast<OperatorNode>(arg)) {
-            if (opNode->op == op) {
-                auto nestedFlattened = opNode->flattenArgumentsWithSharedOperator(opNode->arguments,op,registry);
-                flattenedArgs.insert(flattenedArgs.end(), nestedFlattened.begin(), nestedFlattened.end());
-            } else {
-                flattenedArgs.push_back(arg);
-            }
-        } else {
+
+    for (const auto& arg : args)
+    {
+        auto opNode = std::dynamic_pointer_cast<OperatorNode>(arg);
+
+        if (opNode && opNode->op == op && opNode->getCoeffecient() == 1.0 && opNode->getDegree() == 1.0)
+        {
+            auto nestedFlattened = flattenArgumentsWithSharedOperator(
+                opNode->arguments, op, registry);
+
+            flattenedArgs.insert(
+                flattenedArgs.end(),
+                nestedFlattened.begin(),
+                nestedFlattened.end());
+        }
+        else
+        {
             flattenedArgs.push_back(arg);
         }
     }
+
     return flattenedArgs;
 }
 
 NodePtr OperatorNode::populateTreeFromVectorUsingSharedOperator(
-    std::vector<NodePtr>& args,
-    const std::string& op,
-    const OperationRegistry& registry)
+std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry, double coeffecient, double degree
+)
 {
-    if (args.empty())
-        return nullptr;
+    if (args.empty()) return nullptr;
 
-    if (args.size() == 1)
-        return args[0];
+    if (args.size() == 1) return Symbol::applySymbolData(args[0], coeffecient, degree);
 
-    NodePtr root = std::make_shared<OperatorNode>(
-        op,
-        std::vector<NodePtr>{args[0], args[1]},
-        registry
-    );
+    NodePtr root = args.back();
 
-    for (size_t i = 2; i < args.size(); ++i)
+    for (size_t i = args.size() - 1; i > 0; --i)
     {
         root = std::make_shared<OperatorNode>(
             op,
-            std::vector<NodePtr>{root, args[i]},
+            std::vector<NodePtr>{args[i - 1], root},
             registry
         );
     }
 
+    root = Symbol::applySymbolData(root,coeffecient,degree);
+
     return root;
 }
-
 OperatorNode::OperatorNode(std::string op, std::vector<NodePtr> args, const OperationRegistry &registry): op(std::move(op)), procedureRegistry(registry), Symbol(1.0,1.0)
 {
     arguments.reserve(args.size());
@@ -91,9 +99,9 @@ std::string OperatorNode::toString() const
                 l_associative = b_op->hasProperty(B_OpDefinition::Property::LEFT_ASSOCIATIVE);
             }
         }
-        if(l_associative && r_associative)
-            str+= arguments[0]->toString() + " " + op + " " + arguments[1]->toString();
-        else
+        // if(l_associative && r_associative && coeffecient==1 && degree==1)
+        //     str+= arguments[0]->toString() + " " + op + " " + arguments[1]->toString();
+        // else
             str+="(" + arguments[0]->toString() + " " + op + " " + arguments[1]->toString() + ")";
     }
     else 
@@ -120,25 +128,31 @@ double OperatorNode::evaluate(const Environment &env) const
     }
 
     // Look up in the registry and calculate the final result
-    return procedureRegistry.execute(op, evaluatedArgs);
+    return coeffecient*std::pow(procedureRegistry.execute(op, evaluatedArgs),degree);
 }
 
-NodePtr OperatorNode::simplifyStep() const
+NodePtr OperatorNode::simplifyStep(OptimizationPhase phase) const
 {
-    // Simplify all child nodes first
+    if(coeffecient == 0.0)
+        return std::make_shared<NumberNode>(0.0);
+    else if(degree == 0.0)
+        return std::make_shared<NumberNode>(coeffecient);
+
+    // Simplify all child nodes
     bool allNumbers = true;
     std::vector<NodePtr> simplifiedArgs;
     for (const auto& child : arguments) {
 
         if (const auto& symbol = child->asSymbol())
         {
-            simplifiedArgs.push_back(symbol->simplifyStep());
+            simplifiedArgs.push_back(symbol->simplifyStep(phase));
             allNumbers = false;
         }
         else
             simplifiedArgs.push_back(child);
     }
 
+    // expansion should also compress constants
     if (allNumbers) {
         Environment dummyEnv; // no variables needed for pure number evaluation
         std::vector<double> argsValues;
@@ -146,32 +160,29 @@ NodePtr OperatorNode::simplifyStep() const
             argsValues.push_back(arg->evaluate(dummyEnv));
         }
         double result = procedureRegistry.execute(op, argsValues);
+        result = coeffecient * std::pow(result, degree);
         return std::make_shared<NumberNode>(result);
     
     }
+    auto mutable_clone = this->clone();
+    auto mutable_op = static_cast<OperatorNode*>(mutable_clone.get());
 
-    // try identities
-    auto backupClone = this->clone();
-    auto tempOp = static_cast<OperatorNode*>(backupClone.get());
-    tempOp->setArguments(simplifiedArgs);
-    auto identity = procedureRegistry.simplifyWithIdentities(backupClone);
-
-    // the identity changed the structure of the node
-    if(!backupClone->equals(identity.get()))
-        return identity;
 
     const OpDefiniton* opPtr = procedureRegistry.getOperation(op);
     const B_OpDefinition* b_op = opPtr? dynamic_cast<const B_OpDefinition*>(opPtr) : nullptr;
     
     if(b_op == nullptr) {
         // not a binary operation, just return a new OperatorNode with the simplified arguments
-        return backupClone;
+        return mutable_clone;
     }
     bool r_associative = b_op->hasProperty(B_OpDefinition::Property::RIGHT_ASSOCIATIVE);
     bool l_associative = b_op->hasProperty(B_OpDefinition::Property::LEFT_ASSOCIATIVE);
     bool commutative = b_op->hasProperty(B_OpDefinition::Property::COMMUTATIVE);
     
-
+    if(commutative) {
+        std::sort(simplifiedArgs.begin(),simplifiedArgs.end(),Node::canonicalLess);
+    }
+    mutable_op->setArguments(simplifiedArgs);
     if(l_associative && r_associative) {
         auto flattenedArgs = flattenArgumentsWithSharedOperator(simplifiedArgs, op, procedureRegistry);
         if(commutative)
@@ -183,15 +194,11 @@ NodePtr OperatorNode::simplifyStep() const
         for (const auto& group : groups)
             reducedGroups.push_back(reduceGroup(group,op,procedureRegistry));
 
-        return populateTreeFromVectorUsingSharedOperator(reducedGroups,op,procedureRegistry);
+        mutable_clone = populateTreeFromVectorUsingSharedOperator(reducedGroups,op,procedureRegistry,coeffecient,degree);
     }
 
-    if(commutative) {
-        std::sort(simplifiedArgs.begin(),simplifiedArgs.end(),Node::canonicalLess);
-    }
-
-    // final default case, return a new OperatorNode with the simplified arguments
-    return backupClone;
+    // try identities
+    return procedureRegistry.simplifyWithIdentities(mutable_clone,phase);
 }
 
 bool OperatorNode::equals(const Node *otherNode) const
@@ -216,7 +223,7 @@ bool OperatorNode::equals(const Node *otherNode) const
 
     return equal;
 }
-
+// to be considered of equal base, an operator must have equal arguments (by design, not coeffecient or degree necessarily)
 bool OperatorNode::equalBases(const Symbol *otherNode) const
 {
     if(otherNode->type != NodeType::Operator)
@@ -237,16 +244,9 @@ bool OperatorNode::equalBases(const Symbol *otherNode) const
             break;
         }
 
-        if (symbolArg) {
-            if (!symbolArg->equalBases(symbolOther)) {
-                congruent = false;
-                break;
-            }
-        } else {
-            if (!arguments[i]->equals(other->arguments[i].get())) {
-                congruent = false;
-                break;
-            }
+        if (!arguments[i]->equals(other->arguments[i].get())) {
+            congruent = false;
+            break;
         }
 
     }
@@ -291,6 +291,7 @@ std::vector<std::vector<NodePtr>> OperatorNode::groupLikeTerms(const std::vector
     }
 
     return groups;
+
 }
 NodePtr OperatorNode::reduceGroup(
     const std::vector<NodePtr>& group,
@@ -310,7 +311,7 @@ NodePtr OperatorNode::reduceGroup(
             registry
         );
 
-        result = registry.simplifyWithIdentities(pair);
+        result = registry.simplifyWithIdentities(pair,OptimizationPhase::COMPRESS);
     }
 
     return result;

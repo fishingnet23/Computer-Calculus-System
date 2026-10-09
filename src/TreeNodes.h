@@ -46,6 +46,7 @@ public:
     }
 
     std::string getName() const override {return std::to_string(value);}
+
 };
 
 class VariableNode : public Symbol {
@@ -81,7 +82,7 @@ public:
         auto pair = env.find(name);
         return (pair != env.end()) ? coeffecient * std::pow(pair->second,degree) : 0.0;
     }
-    NodePtr simplifyStep() const override { 
+    NodePtr simplifyStep(OptimizationPhase phase) const override { 
         if(coeffecient == 0)
             return std::make_shared<NumberNode>(0);
         else if(degree == 0) // accounts for 0^0 by just defaulting to 0
@@ -122,7 +123,7 @@ class OperatorNode : public Symbol {
 
     // Helper function to flatten arguments of the same operator, useful for associative operations like addition and multiplication
     static std::vector<NodePtr> flattenArgumentsWithSharedOperator(const std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry);
-    static NodePtr populateTreeFromVectorUsingSharedOperator(std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry);
+    static NodePtr populateTreeFromVectorUsingSharedOperator(std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry,double coeffecient, double degree);
     static std::vector<std::vector<NodePtr>> groupLikeTerms(const std::vector<NodePtr>& args);
     static NodePtr reduceGroup(const std::vector<NodePtr>& group,const std::string& op,const OperationRegistry& registry);
 
@@ -137,10 +138,12 @@ public:
     std::string toString() const override;
     const std::string& getOperand() const {return op;}
     std::string getName() const override {return op;}
+    const OperationRegistry& getRegistry() const{return procedureRegistry;}
+    void setName(const std::string& name){op=name;}
 
     double evaluate(const Environment& env) const override;
 
-    NodePtr simplifyStep() const override;    
+    NodePtr simplifyStep(OptimizationPhase phase) const override;    
 
     bool equals(const Node* other) const override;
     virtual bool equalBases(const Symbol* other) const override;

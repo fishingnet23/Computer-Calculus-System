@@ -16,7 +16,7 @@ struct OpDefiniton {
     virtual ~OpDefiniton() = default;
 
     using MathProcedure = std::function<double(const std::vector<double>&)>;
-    using IdentityApplier = std::function<NodePtr(NodePtr)>;
+    using IdentityApplier = std::function<NodePtr(NodePtr, OptimizationPhase)>;
 
     enum class Format
     {
@@ -30,7 +30,7 @@ struct OpDefiniton {
     MathProcedure procedure;
     int precedence = 0;
     Format format = Format::INFIX;
-    IdentityApplier identityfn = [](NodePtr op) -> NodePtr {
+    IdentityApplier identityfn = [](NodePtr op, OptimizationPhase Phase) -> NodePtr {
         return op;
     };
 
@@ -43,7 +43,6 @@ struct B_OpDefinition : public OpDefiniton
         LEFT_ASSOCIATIVE = 1,
         RIGHT_ASSOCIATIVE = 2,
         COMMUTATIVE = 4,
-        DISTRIBUTIVE = 8,
         
     };
     struct PropertyFlag
@@ -60,7 +59,6 @@ struct B_OpDefinition : public OpDefiniton
     bool hasProperty(B_OpDefinition::Property property) const;
     const PropertyFlag* getProperty(B_OpDefinition::Property property) const;
 };
-
 class OperationRegistry {
 private:
     std::unordered_map<std::string, std::unique_ptr<OpDefiniton>> registry;
@@ -68,7 +66,7 @@ public:
     OperationRegistry();
     // Lookup function to execute an operation
     double execute(const std::string& op, const std::vector<double>& args) const;
-    NodePtr simplifyWithIdentities(NodePtr op) const;
+    NodePtr simplifyWithIdentities(NodePtr op,OptimizationPhase phase) const;
 
 
     const OpDefiniton* getOperation(const std::string& op) const;

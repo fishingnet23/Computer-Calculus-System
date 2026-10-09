@@ -35,7 +35,10 @@ public:
         return src == "x" || src == "y" || src == "z";
     }
 };
-
+enum class OptimizationPhase {
+    EXPAND,
+    COMPRESS
+};
 
 class Symbol;
 
@@ -62,6 +65,7 @@ public:
     // strict equality
     bool virtual equals(const Node* other) const = 0;
     virtual std::string getName() const = 0;
+    
     virtual std::shared_ptr<Node> clone() const = 0;
 
     // upcast helpers
@@ -90,16 +94,30 @@ public:
 
     void setCoeffecient(double coeffecient){this->coeffecient = coeffecient;}
     void setDegree(double degree){this->degree = degree;}
+    virtual void setName(const std::string& name) = 0;
 
     virtual double getDegree() const {return degree;}
     virtual double getCoeffecient() const {return coeffecient;}
 
     void negate(){coeffecient = -coeffecient;}
+    double negate()const{return -coeffecient;}
+
+    void inverse()
+    {
+        if(coeffecient == 0)
+            throw std::runtime_error("Division by zero error!");
+
+        coeffecient = 1.0 / coeffecient;
+        degree = -degree;
+    }
+
 
     virtual bool equalBases(const Symbol* other) const = 0;
-    virtual std::shared_ptr<Node> simplifyStep() const = 0;
+    virtual std::shared_ptr<Node> simplifyStep(OptimizationPhase phase) const = 0;
     
     std::shared_ptr<Node> simplify() const;
+    
+    static std::shared_ptr<Node> applySymbolData(const std::shared_ptr<Node>& node,double coefficient,double degree);
 };
 
 using NodePtr = std::shared_ptr<Node>;

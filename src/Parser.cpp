@@ -44,10 +44,10 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
         bool r_associative = b_op!=nullptr && b_op->hasProperty(B_OpDefinition::Property::RIGHT_ASSOCIATIVE);
         bool l_associative = b_op!=nullptr && b_op->hasProperty(B_OpDefinition::Property::LEFT_ASSOCIATIVE);
 
-        // If the operator is left associative, we want to consider the right most operator as the root.
+        // If the operator is left associative only, we want to consider the right most operator as the root.
         // Otherwise, we can consider the left most operator as the root (implicit right associativity).
 
-        if (priority < bestPriority || (priority == bestPriority && l_associative ))
+        if (priority < bestPriority || (priority == bestPriority && l_associative))
         {
             bestPriority = priority;
             result.token = &token;

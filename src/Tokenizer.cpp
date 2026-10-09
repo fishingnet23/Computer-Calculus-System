@@ -121,13 +121,11 @@ std::vector<Token> Tokenizer::tokenize()
         
         if(token.type == TokenType::LITERAL || token.type == TokenType::IDENTIFIER || token.type == TokenType::R_BRACKET)
         {
-            if(i+1<res.size())
-                std::cout<< res[i+1].type <<" "<< (int)res[i+1].format;
             // check if the next token is an identifier/bracket, if it is, implicit multiplication
-            if(i+1 < res.size() && (res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET || res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefiniton::Format::PREFIX))
+            if(i+1 < res.size() && (res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::LITERAL || res[i+1].type == TokenType::L_BRACKET || res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefiniton::Format::PREFIX))
             {
                 // insert a multiplication operator between the two tokens
-                res.insert(res.begin() + i + 1, Token(TokenType::OPERATION, "*"));
+                res.insert(res.begin() + i + 1, Token(TokenType::OPERATION, "[implicit*]"));
                 i++; // skip the next token since we just inserted a new one
             }
         }
@@ -136,17 +134,16 @@ std::vector<Token> Tokenizer::tokenize()
             // check if the next token is a literal or identifier, if it is, change the token to a unary minus operator
             if(i+1 < res.size() && (res[i+1].type == TokenType::LITERAL || res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET|| res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefiniton::Format::PREFIX))
             {
-                // if the previous token is a literal or identifier, x-y = x+(-y) by definition, so we insert a plus operator before the unary minus operator
+                // if the previous token is a literal or identifier, keep it binary subtraction
                 if(i > 0 && (res[i-1].type == TokenType::LITERAL || res[i-1].type == TokenType::IDENTIFIER || res[i-1].type == TokenType::R_BRACKET))
                 {
-                    res.insert(res.begin() + i, Token(TokenType::OPERATION, "+"));
-                    i++;
+                    continue;
                 }
                 res[i] = Token(TokenType::LITERAL, "-1"); // change the token to a unary minus operator
                 // change the token to a unary minus operator
                 
                 i++;
-                res.insert(res.begin() + i, Token(TokenType::OPERATION, "*"));
+                res.insert(res.begin() + i, Token(TokenType::OPERATION, "[implicit*]"));
             }
         }
     }
