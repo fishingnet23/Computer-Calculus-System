@@ -17,6 +17,36 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
     {
         const Token& token = tokens[i];
 
+        if ((token.type== TokenType::IDENTIFIER||token.type == TokenType::OPERATION) && (i + 1 < end) && tokens[i + 1].type == TokenType::L_BRACKET)
+        {
+            auto pair = registry.getRegistry().find(token.value);
+            if (pair != registry.getRegistry().end() && pair->second->format == OpDefiniton::Format::EXPLICIT_FUNCTION)
+            {
+                // if already nested, just let regular depth tracking handle it
+                if (depth == 0)
+                {
+                    int funcDepth = 0;
+                    size_t j = i + 1;
+                    for (; j < end; ++j)
+                    {
+                        if (tokens[j].type == TokenType::L_BRACKET) ++funcDepth;
+                        else if (tokens[j].type == TokenType::R_BRACKET) --funcDepth;
+
+                        if (funcDepth == 0) break;
+                    }
+                    // if the function covers the whole outer span, it's the root
+                    if (i == start && j == end - 1)
+                    {
+                        result.token = &token;
+                        result.index = i;
+                        result.op = pair->second.get();
+                        return result;
+                    }
+                    
+                }
+            }
+        }
+
         if (token.type == TokenType::L_BRACKET)
         {
             ++depth;
@@ -40,9 +70,9 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
             continue;
 
         int priority = pair->second->precedence;
-        const B_OpDefinition* b_op = dynamic_cast<const B_OpDefinition*>(pair->second.get());
-        bool r_associative = b_op!=nullptr && b_op->hasProperty(B_OpDefinition::Property::RIGHT_ASSOCIATIVE);
-        bool l_associative = b_op!=nullptr && b_op->hasProperty(B_OpDefinition::Property::LEFT_ASSOCIATIVE);
+        const MultiArg_OpDefinition* b_op = dynamic_cast<const MultiArg_OpDefinition*>(pair->second.get());
+        bool r_associative = b_op!=nullptr && b_op->hasProperty(MultiArg_OpDefinition::Property::BINARY_RIGHT_ASSOCIATIVE);
+        bool l_associative = b_op!=nullptr && b_op->hasProperty(MultiArg_OpDefinition::Property::BINARY_LEFT_ASSOCIATIVE);
 
         // If the operator is left associative only, we want to consider the right most operator as the root.
         // Otherwise, we can consider the left most operator as the root (implicit right associativity).
@@ -100,9 +130,8 @@ NodePtr Parser::parseTokens(size_t start, size_t end)
 		if (token.type == TokenType::LITERAL)
 			return std::make_shared<NumberNode>(token.value);
 
-		if (token.type == TokenType::IDENTIFIER)
-			return std::make_shared<VariableNode>(token.value);
-
+		if (token.type == TokenType::IDENTIFIER || token.type == TokenType::OPERATION)
+            return std::make_shared<VariableNode>(token.value);
 		throw std::runtime_error("Unexpected token: " + token.value);
 	}
 
@@ -128,10 +157,10 @@ NodePtr Parser::parseTokens(size_t start, size_t end)
         // This is a binary operator, so we will try to apply smart parsing rules like associativity and precedence.
         NodePtr left = parseTokens(start, root.index);
         NodePtr right = parseTokens(root.index + 1, end);
-        const B_OpDefinition* b_op = dynamic_cast<const B_OpDefinition*>(root.op);
+        const MultiArg_OpDefinition* b_op = dynamic_cast<const MultiArg_OpDefinition*>(root.op);
         std::vector<NodePtr> args;
 
-        if (b_op && b_op->hasProperty(B_OpDefinition::Property::COMMUTATIVE))
+        if (b_op && b_op->hasProperty(MultiArg_OpDefinition::Property::COMMUTATIVE))
         {
             // If the operator is commutative, we can sort the arguments to make the tree more canonical.
             // This is useful for simplification and comparison of expressions.
@@ -156,6 +185,56 @@ NodePtr Parser::parseTokens(size_t start, size_t end)
         NodePtr inner = parseTokens(start, root.index);
         rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<NodePtr>{ inner }, registry);
     }
+    else if(root.op->format == OpDefiniton::Format::EXPLICIT_FUNCTION)
+    {
+        if ((root.index + 2 >= end) || (tokens[root.index + 1].type != TokenType::L_BRACKET))
+        {
+            throw std::runtime_error("Explicit functions require brackets!");
+        }
+
+        std::vector<NodePtr> arguments = {};
+        arguments.reserve(3);
+        
+        size_t subStart = root.index + 2; 
+        
+        int localDepth = 0;
+        
+        // Loop through all tokens inside the function window
+        for (size_t i = root.index + 2; i < end; i++)
+        {
+            
+            if (tokens[i].type == TokenType::L_BRACKET)
+            {
+                ++localDepth;
+            }
+            else if (tokens[i].type == TokenType::R_BRACKET)
+            {
+                --localDepth;
+            }
+
+            // 1. If we find a top-level comma, split the argument
+            if (tokens[i].value == "," && localDepth == 0)
+            {
+                size_t subEnd = i;
+                if (subStart < subEnd) {
+                    arguments.push_back(parseTokens(subStart, subEnd));
+                }
+                subStart = i + 1;
+            }
+            // 2. If localDepth hits -1, we found the EXACT closing bracket for THIS function
+            else if (localDepth == -1)
+            {
+                size_t subEnd = i;
+                if (subStart < subEnd) {
+                    arguments.push_back(parseTokens(subStart, subEnd));
+                }
+                break; // Safely stop processing arguments for this function level
+            }
+        }
+        
+        rootNode = std::make_shared<OperatorNode>(root.token->value, arguments, registry);
+    }
+
     else
     {
         throw std::runtime_error("Not implemented exception!");

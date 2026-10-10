@@ -24,7 +24,7 @@ struct OpDefiniton {
         INFIX = 0,
         PREFIX = 1,
         POSTFIX = 2,
-        MULTIARG = 3,
+        EXPLICIT_FUNCTION = 3,
     };
 
     MathProcedure procedure;
@@ -35,13 +35,13 @@ struct OpDefiniton {
     };
 
 };
-struct B_OpDefinition : public OpDefiniton
+struct MultiArg_OpDefinition : public OpDefiniton
 {
 
     enum class Property
     {
-        LEFT_ASSOCIATIVE = 1,
-        RIGHT_ASSOCIATIVE = 2,
+        BINARY_LEFT_ASSOCIATIVE = 1,
+        BINARY_RIGHT_ASSOCIATIVE = 2,
         COMMUTATIVE = 4,
         
     };
@@ -56,8 +56,8 @@ struct B_OpDefinition : public OpDefiniton
     };
 
     std::vector<PropertyFlag> properties = {};
-    bool hasProperty(B_OpDefinition::Property property) const;
-    const PropertyFlag* getProperty(B_OpDefinition::Property property) const;
+    bool hasProperty(MultiArg_OpDefinition::Property property) const;
+    const PropertyFlag* getProperty(MultiArg_OpDefinition::Property property) const;
 };
 class OperationRegistry {
 private:

@@ -78,38 +78,51 @@ std::string OperatorNode::toString() const
     
     std::string str = "";
     
-    if(coeffecient != 1.0 && coeffecient != -1.0)
+    const OpDefiniton* opDef = procedureRegistry.getOperation(op);
+    if(!opDef)
+        return "[UNKNOWN OPERATION]";
+    
+        if(coeffecient != 1.0 && coeffecient != -1.0)
         str += std::to_string(coeffecient);
     if(coeffecient == -1.0)
         str += "-";
-
+   
+    if(arguments.size()<1)
+    {
+        str += op + "()";
+    }
     // Unary operator: op(arg)
-    if (arguments.size() == 1) {
+    else if (arguments.size() == 1) {
         str += op + "(" + arguments[0]->toString() + ")";
     }
     // Binary operator: arg1 op arg2
     else if (arguments.size() == 2) {
         bool r_associative = false;
         bool l_associative = false;
-        auto pair = procedureRegistry.getRegistry().find(op);
-        if (pair != procedureRegistry.getRegistry().end()) {
-            const B_OpDefinition* b_op = dynamic_cast<const B_OpDefinition*>(pair->second.get());
-            if (b_op) {
-                r_associative = b_op->hasProperty(B_OpDefinition::Property::RIGHT_ASSOCIATIVE);
-                l_associative = b_op->hasProperty(B_OpDefinition::Property::LEFT_ASSOCIATIVE);
-            }
+         
+        const MultiArg_OpDefinition* b_op = dynamic_cast<const MultiArg_OpDefinition*>(opDef);
+        if (b_op) {
+            r_associative = b_op->hasProperty(MultiArg_OpDefinition::Property::BINARY_RIGHT_ASSOCIATIVE);
+            l_associative = b_op->hasProperty(MultiArg_OpDefinition::Property::BINARY_LEFT_ASSOCIATIVE);
         }
-        // if(l_associative && r_associative && coeffecient==1 && degree==1)
-        //     str+= arguments[0]->toString() + " " + op + " " + arguments[1]->toString();
-        // else
-            str+="(" + arguments[0]->toString() + " " + op + " " + arguments[1]->toString() + ")";
+        
+        if(b_op && b_op->format == OpDefiniton::Format::INFIX)
+            // if(l_associative && r_associative && coeffecient==1 && degree==1)
+            //     str+= arguments[0]->toString() + " " + op + " " + arguments[1]->toString();
+            // else
+                str+="(" + arguments[0]->toString() + " " + op + " " + arguments[1]->toString() + ")";
+        else
+            str+= op+"(" + arguments[0]->toString()+","+ arguments[1]->toString() + ")";
     }
     else 
     {
-        for (const auto& arg : arguments)
+        str+= op + "(";
+        str += arguments[0]->toString();
+        for (size_t i=1;i<arguments.size();i++)
         {
-            str += arg->toString() + " ";
+            str += ","+arguments[i]->toString();
         }
+        
         str += ")";
     }
 
@@ -166,18 +179,14 @@ NodePtr OperatorNode::simplifyStep(OptimizationPhase phase) const
     }
     auto mutable_clone = this->clone();
     auto mutable_op = static_cast<OperatorNode*>(mutable_clone.get());
-
+    mutable_op->setArguments(simplifiedArgs);
 
     const OpDefiniton* opPtr = procedureRegistry.getOperation(op);
-    const B_OpDefinition* b_op = opPtr? dynamic_cast<const B_OpDefinition*>(opPtr) : nullptr;
+    const MultiArg_OpDefinition* b_op = opPtr? dynamic_cast<const MultiArg_OpDefinition*>(opPtr) : nullptr;
     
-    if(b_op == nullptr) {
-        // not a binary operation, just return a new OperatorNode with the simplified arguments
-        return mutable_clone;
-    }
-    bool r_associative = b_op->hasProperty(B_OpDefinition::Property::RIGHT_ASSOCIATIVE);
-    bool l_associative = b_op->hasProperty(B_OpDefinition::Property::LEFT_ASSOCIATIVE);
-    bool commutative = b_op->hasProperty(B_OpDefinition::Property::COMMUTATIVE);
+    bool r_associative = b_op->hasProperty(MultiArg_OpDefinition::Property::BINARY_RIGHT_ASSOCIATIVE);
+    bool l_associative = b_op->hasProperty(MultiArg_OpDefinition::Property::BINARY_LEFT_ASSOCIATIVE);
+    bool commutative = b_op->hasProperty(MultiArg_OpDefinition::Property::COMMUTATIVE);
     
     if(commutative) {
         std::sort(simplifiedArgs.begin(),simplifiedArgs.end(),Node::canonicalLess);
@@ -192,7 +201,7 @@ NodePtr OperatorNode::simplifyStep(OptimizationPhase phase) const
         std::vector<NodePtr> reducedGroups;
 
         for (const auto& group : groups)
-            reducedGroups.push_back(reduceGroup(group,op,procedureRegistry));
+            reducedGroups.push_back(reduceGroup(group,op,procedureRegistry,phase));
 
         mutable_clone = populateTreeFromVectorUsingSharedOperator(reducedGroups,op,procedureRegistry,coeffecient,degree);
     }
@@ -296,7 +305,7 @@ std::vector<std::vector<NodePtr>> OperatorNode::groupLikeTerms(const std::vector
 NodePtr OperatorNode::reduceGroup(
     const std::vector<NodePtr>& group,
     const std::string& op,
-    const OperationRegistry& registry)
+    const OperationRegistry& registry, OptimizationPhase phase)
 {
     if (group.empty())
         return nullptr;
@@ -311,7 +320,7 @@ NodePtr OperatorNode::reduceGroup(
             registry
         );
 
-        result = registry.simplifyWithIdentities(pair,OptimizationPhase::COMPRESS);
+        result = registry.simplifyWithIdentities(pair,phase);
     }
 
     return result;

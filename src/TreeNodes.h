@@ -26,7 +26,7 @@ public:
     type = NodeType::Number;
     }
     NumberNode(const NumberNode& other) : value(other.value){type = NodeType::Number;}
-
+    NumberNode(const NumberNode& other, double coeffecient, double degree):value(coeffecient*std::pow(other.value,degree)){type = NodeType::Number;}
     std::shared_ptr<Node> clone() const override {
         return std::make_shared<NumberNode>(*this);
     }
@@ -125,7 +125,7 @@ class OperatorNode : public Symbol {
     static std::vector<NodePtr> flattenArgumentsWithSharedOperator(const std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry);
     static NodePtr populateTreeFromVectorUsingSharedOperator(std::vector<NodePtr>& args, const std::string& op, const OperationRegistry& registry,double coeffecient, double degree);
     static std::vector<std::vector<NodePtr>> groupLikeTerms(const std::vector<NodePtr>& args);
-    static NodePtr reduceGroup(const std::vector<NodePtr>& group,const std::string& op,const OperationRegistry& registry);
+    static NodePtr reduceGroup(const std::vector<NodePtr>& group,const std::string& op,const OperationRegistry& registry, OptimizationPhase phase);
 
 public:
     OperatorNode(std::string op, std::vector<NodePtr> args, const OperationRegistry& registry);

@@ -79,6 +79,7 @@ public:
 class Symbol : public Node
 {
 static const int MAX_SIMPLIFICATION_STEPS = 50; // Maximum number of simplification steps to avoid infinite loops
+static const int MAX_SIMPLIFICATION_STRIKES = 2; // maximum amount of intermediate expansions allowed in the simplification phase
 
 protected:
     double coeffecient;

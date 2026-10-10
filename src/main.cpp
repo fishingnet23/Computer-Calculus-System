@@ -27,6 +27,7 @@ int main() {
     std::cout<<"Enter a math expression in calculator language (example: 5x^2 + cos(x) + 5) : "<<std::endl;
     std::string expression;
     std::getline(std::cin, expression);
+    std::cout <<"raw input: " << expression<<std::endl;
     AST::Tree tree(expression,registry);
     try
     {

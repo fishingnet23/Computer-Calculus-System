@@ -27,14 +27,14 @@ std::shared_ptr<Node> Symbol::simplify() const
         }
         else
             previousLength = expandedNode->toString().length();
-        std::cout << "expansion pass " << i+1 << ": " << expandedNode->toString() << "\n";
+        // std::cout << "expansion pass " << i+1 << ": " << expandedNode->toString() << std::endl;
         if(const Symbol* symbol = expandedNode->asSymbol())
         {
             expandedNode = symbol->simplifyStep(OptimizationPhase::EXPAND);
         }
         
     }
-    std::cout << "Final expanded node: " << expandedNode->toString() << "\n";
+    std::cout << "Final expanded node: " << expandedNode->toString() << std::endl;
     auto temp = expandedNode->asSymbol();
     if(!temp)
         return expandedNode;
@@ -42,16 +42,24 @@ std::shared_ptr<Node> Symbol::simplify() const
     std::cout << "Beginning simplification: "<<std::endl;
     auto simplifiedNode = temp->simplifyStep(OptimizationPhase::COMPRESS);
 
+    int strikes = 0;
     for(int i=0;i<MAX_SIMPLIFICATION_STEPS;i++) // limit the number of simplification steps to avoid infinite loops
     {
         if(simplifiedNode->toString().length() >= previousLength) // if the simplification step didn't reduce the length of the expression, stop simplifying
         {
-            std::cout << "not simplifying after pass " << i << ". stopping simplification.\n";    
-            break;
+            strikes++;
+            if(strikes > MAX_SIMPLIFICATION_STRIKES)
+            {
+                std::cout << "not simplifying after pass " << i << ". stopping simplification.\n";    
+                break;
+            }
         }
         else
+        {
             previousLength = simplifiedNode->toString().length();
-        std::cout << "simplification pass " << i+1 << ": " << simplifiedNode->toString() << "\n";
+            strikes = 0;
+        }
+        // std::cout << "simplification pass " << i+1 << ": " << simplifiedNode->toString() << std::endl;
         if(const Symbol* symbol = simplifiedNode->asSymbol())
         {
             simplifiedNode = symbol->simplifyStep(OptimizationPhase::COMPRESS);

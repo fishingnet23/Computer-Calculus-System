@@ -58,12 +58,13 @@ Token Tokenizer::extractUnknown()
 
         token += current;
         pos++;
+        if(current == ',')
+            break;
 
         auto format = registry.getOperationFormat(token);
         if(format != OpDefiniton::Format::NONE)
             return Token(TokenType::OPERATION, token, format);
     }
-
     return Token(TokenType::UNKNOWN, token);
 }
 Token Tokenizer::next()
@@ -147,7 +148,11 @@ std::vector<Token> Tokenizer::tokenize()
             }
         }
     }
-
+    for(auto arg:res)
+    {
+        std::cout<<arg<<", ";
+    }
+    std::cout<<std::endl;
     return res;
 }
 
