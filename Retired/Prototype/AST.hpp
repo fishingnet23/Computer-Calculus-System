@@ -31,7 +31,7 @@ public:
             return 0.0;
     }
 
-    void simplify()
+    void compress()
     {
         if(!root)
             return;

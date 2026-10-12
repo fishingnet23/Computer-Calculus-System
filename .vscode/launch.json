@@ -5,7 +5,7 @@
             "name": "Debug Project",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/main",
+            "program": "${workspaceFolder}/bin/program",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -21,7 +21,7 @@
                 }
             ],
             "windows": {
-                "program": "${workspaceFolder}/bin/main.exe",
+                "program": "${workspaceFolder}/bin/program.exe",
                 "miDebuggerPath": "C:/msys64/ucrt64/bin/gdb.exe"
             }
         }

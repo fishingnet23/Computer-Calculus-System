@@ -4,14 +4,7 @@
         {
             "label": "Build Project",
             "type": "shell",
-            "command": "g++",
-            "args": [
-                "-std=c++17",
-                "-g",
-                "${workspaceFolder}/src/*.cpp",
-                "-o",
-                "${workspaceFolder}/bin/main"
-            ],
+            "command": "g++ -std=c++17 -g $(find ${workspaceFolder}/src -name '*.cpp') -I${workspaceFolder}/src -o ${workspaceFolder}/bin/program",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -23,13 +16,13 @@
                 "isDefault": true
             },
             "windows": {
-                "args": [
-                    "-std=c++17",
-                    "-g",
-                    "${workspaceFolder}/src/*.cpp",
-                    "-o",
-                    "${workspaceFolder}/bin/main.exe"
-                ]
+                "options": {
+                    "shell": {
+                        "executable": "powershell.exe",
+                        "args": ["-Command"]
+                    }
+                },
+                "command": "g++ -std=c++17 -g (Get-ChildItem -Recurse '${workspaceFolder}/src/*.cpp' | Select-Object -ExpandProperty FullName) -I${workspaceFolder}/src -o ${workspaceFolder}/bin/program.exe"
             }
         }
     ]

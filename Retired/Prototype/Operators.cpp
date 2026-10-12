@@ -1,5 +1,6 @@
 #include "Operators.hpp"
 #include "TreeNodes.h"
+#include "Operators.hpp"
 namespace AST
 {
 
@@ -578,3 +579,5 @@ const MultiArg_OpDefinition::PropertyFlag *MultiArg_OpDefinition::getProperty(Mu
     return nullptr;
 }
 };
+
+

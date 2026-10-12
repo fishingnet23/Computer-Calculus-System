@@ -1,5 +1,5 @@
 #include <iostream>
-#include "AST.hpp"
+#include "AST/AlgebraSyntaxTree.hpp"
 #include <sstream>
 
 constexpr double PI = 3.14159265358979323846;
@@ -10,28 +10,22 @@ void clearConsole() {
 }
 
 // good test cases
-// 7/3*x^5 - 11*x^4 + 1/2*x^5 + 13*x^2 - 4/5*x^3 + 9*x^4 - 22/7*x + 15*x^2 - 6*x^5 + 1/8*x^3 - 14*x + 19
-// (x^2 - x^2)ln(x) + 3x^2(x^0 + 4) - 15x^2
-// 1 / 2x / 3x^2 / (1 / 4x)
-// (2x^2)^3^2 - 512x^18
-// sin(x) / cos(x) -x ^ 0 * sin(x) / cos(x)
-// x - -2x^2 - (3x^2 - -x)
+
 
 
 int main() {
-    
-    AST::OperationRegistry registry;
-    
+        
     do
     {
     std::cout<<"Enter a math expression in calculator language (example: 5x^2 + cos(x) + 5) : "<<std::endl;
     std::string expression;
     std::getline(std::cin, expression);
     std::cout <<"raw input: " << expression<<std::endl;
-    AST::Tree tree(expression,registry);
+    AST::Tree tree;
     try
-    {
-        tree.simplify();
+    {   
+        tree.buildFrom(expression);
+        tree.cannonize();
     }
     catch(const std::runtime_error& e)
     {
