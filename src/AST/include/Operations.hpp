@@ -7,6 +7,7 @@
 #include "../Operators/Multiply.hpp"
 #include "../Operators/Divide.hpp"
 #include "../Operators/Exponentiate.hpp"
+#include "../Operators/Negate.hpp"
 
 
 namespace AST
@@ -14,18 +15,7 @@ namespace AST
     class OpRegistry
     {
     private:
-        // Added missing semicolon at the end of initialization
-        inline static const std::map<std::string, std::shared_ptr<const OpDefinition>> map = 
-        {
-            {"+", std::make_shared<Add>()},
-            {"-", std::make_shared<Subtract>()},
-            {"*", std::make_shared<Multiply>()}, // explicit
-            {"[implicit*]",std::make_shared<Multiply>(true)}, // implicit
-            {"/", std::make_shared<Divide>()},
-            {"^", std::make_shared<Exponentiate>()}
-
-        };
-
+        static const std::map<std::string, std::shared_ptr<const OpDefinition>> map;
     public:
         static std::shared_ptr<const OpDefinition> get(const std::string& name)
         {

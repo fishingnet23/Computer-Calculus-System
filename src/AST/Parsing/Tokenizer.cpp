@@ -138,11 +138,8 @@ std::vector<Token> Tokenizer::tokenize()
                 {
                     continue;
                 }
-                res[i] = Token(TokenType::LITERAL, "-1"); // change the token to a unary minus operator
-                // change the token to a unary minus operator
-                
+                res[i] = Token(TokenType::OPERATION, "unary-"); // change the token to a unary minus operator                
                 i++;
-                res.insert(res.begin() + i, Token(TokenType::OPERATION, "[implicit*]"));
             }
         }
     }

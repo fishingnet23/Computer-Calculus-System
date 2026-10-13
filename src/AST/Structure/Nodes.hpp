@@ -31,7 +31,7 @@ struct Environment
 
     explicit Environment(const std::vector<std::string>& tokens);
 
-    auto& operator[](const std::string& str){return map[str];}
+    double& operator[](const std::string& str){return map[str];}
     double operator[](const std::string& str) const
     {
         auto it = map.find(str);
@@ -77,9 +77,9 @@ class NumberNode: public Node
 {
     double value;
 public:
-    NumberNode(double val){value = val; }
+    explicit NumberNode(double val){value = val; }
 
-    NumberNode(const std::string& str)
+    explicit NumberNode(const std::string& str)
     {
         try
         {

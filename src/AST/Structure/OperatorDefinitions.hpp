@@ -80,7 +80,7 @@ public:
     void insertOrAccumulate(const std::string& symbolName, NodePtr node, double coeff, double degree);
     
     void set(const std::string& symbolName, double coeff, double degree);
-    const auto& get()const{return map;}
+    const std::map<std::string, std::map<double,indexedOpData>>& get()const {return map;}
     // get indiscriminantly
     double* getValuePtr(const std::string& symbolName, double primaryKey);
     double* getCoeffPtrByDegree(const std::string& symbolName, double degree);
@@ -117,7 +117,7 @@ public:
     
     void insertOrAccumulate(const std::string& symbolName, Symbol* node, const std::function<void(double&,double&)>& transformation);
     void set(const std::string& symbolName, double coeff, double degree);
-    const auto& get()const{return map;}
+    const std::map<std::string, SymbolData>& get()const{return map;}
     
 
     inline double getConstant() const { return constant; }

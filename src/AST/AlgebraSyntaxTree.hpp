@@ -7,10 +7,10 @@ class Tree
     NodePtr root;
     NodePtr parseTokens(const std::vector<Token>& tokens);
 public:
-    Tree(NodePtr root) :root(root) {}
+    explicit Tree(NodePtr root) :root(root) {}
     Tree() :root(nullptr) {}
-    Tree(const std::vector<Token>& tokens);
-    Tree(const std::string& src);
+    explicit Tree(const std::vector<Token>& tokens);
+    explicit Tree(const std::string& src);
 
     void buildFrom(const std::string& src);
     void buildFrom(const std::vector<Token>& tokens){root = parseTokens(tokens);}
