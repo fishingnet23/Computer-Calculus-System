@@ -26,6 +26,13 @@ public:
             return "EMPTY TREE";
     }
 
+    std::string postfixNotation()
+    {
+        if(root)
+            return root->postFixNotation();
+        return "EMPTY TREE";
+    }
+
     double evaluate(const Environment& env) const
     {
         if (root)

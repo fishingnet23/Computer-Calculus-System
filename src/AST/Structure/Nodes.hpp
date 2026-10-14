@@ -53,6 +53,7 @@ public:
 
     virtual double evaluate(const Environment& env) const = 0;
     virtual const std::string toString() const = 0;
+    virtual const std::string postFixNotation() const = 0;
     virtual NodeType type() const = 0;
     virtual std::shared_ptr<Node> clone() const = 0; 
 
@@ -105,6 +106,7 @@ public:
     {
        return AST::toString(value);
     }
+    virtual const std::string postFixNotation() const override {return toString();}
     virtual bool identical(const Node* other) const {return other->asNumber() && other->asNumber()->value == value;}
     
     virtual std::shared_ptr<Node> clone() const override {return std::make_shared<NumberNode>(value);} 
@@ -152,6 +154,7 @@ public:
             str+= "^" + AST::toString(degree);
         return str;
     }
+    virtual const std::string postFixNotation() const override {return toString();}
     virtual bool identical(const Node* other) const override{
         const Symbol* otherSymbol = other->asSymbol();
         if(!otherSymbol)
@@ -237,7 +240,23 @@ public:
     virtual std::shared_ptr<Node> clone() const override
     {
         return std::make_shared<OperatorNode>(*this);
-    } 
+    }
+
+    virtual const std::string postFixNotation() const override 
+    {
+        std::string str = "(";
+        if(arguments.size() == 0)
+        {
+            return str + name +")";
+        }
+        str+= arguments[0]->postFixNotation();
+        for(int i=1;i<arguments.size();i++)
+        {
+            str+= ", " +arguments[i]->postFixNotation();
+        }
+
+        return str + ", "+ name +")";
+    }
 
     
 };

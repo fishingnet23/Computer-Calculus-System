@@ -25,6 +25,7 @@ int main() {
     try
     {   
         tree.buildFrom(expression);
+        std::cout << "raw AST: " << tree.postfixNotation() << std::endl;
         tree.cannonize();
     }
     catch(const std::runtime_error& e)
@@ -32,7 +33,7 @@ int main() {
         e.what();
         continue;
     }
-    std::cout << tree.toString() << std::endl;
+    std::cout << tree.postfixNotation() << std::endl;
 
     std::cout << "Enter variables and values seperated by commas: " << std::endl;
     std::string vars;
