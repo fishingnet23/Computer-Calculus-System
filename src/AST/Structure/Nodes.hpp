@@ -244,7 +244,11 @@ public:
 
     virtual const std::string postFixNotation() const override 
     {
-        std::string str = "(";
+        std::string str = "";
+
+        if(coefficient != 1)
+            str+= AST::toString(coefficient);
+        str+="(";
         if(arguments.size() == 0)
         {
             return str + name +")";
@@ -254,8 +258,13 @@ public:
         {
             str+= ", " +arguments[i]->postFixNotation();
         }
-
-        return str + ", "+ name +")";
+        str+= ", "+ name +")";
+        
+        if(degree!=1.0)
+        {
+            str+= "^" + AST::toString(degree);
+        }
+        return str;
     }
 
     

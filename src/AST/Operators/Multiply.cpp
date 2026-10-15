@@ -113,6 +113,11 @@ namespace AST
         std::vector<NodePtr> argsCopy = opNode->getArguments();
         NodePtr firstAdditionNode; 
 
+        if (opNode->getCoeff() != 1.0)
+        {
+            argsCopy.push_back(NodeFactory::makeNumber(opNode->getCoeff()));
+        }
+
         // find the first addition node
         for(size_t i = 0; i < argsCopy.size(); i++)
         {
@@ -134,6 +139,10 @@ namespace AST
         }
 
         auto additionToDistribute = toOperator(firstAdditionNode);
+        if (additionToDistribute->getCoeff() != 1.0)
+        {
+            argsCopy.push_back(NodeFactory::makeNumber(additionToDistribute->getCoeff()));
+        }
         std::vector<NodePtr> newTermsToAdd;
         newTermsToAdd.reserve(additionToDistribute->getArguments().size());
 
@@ -143,6 +152,7 @@ namespace AST
             factorPool.push_back(arg);
             
             auto internalMultiplication = NodeFactory::makeOperator("*", factorPool);
+            std::cout << "INTERNAL MULTIPLICATION " << internalMultiplication->postFixNotation() << std::endl;
             newTermsToAdd.push_back(internalMultiplication);
         }
 
