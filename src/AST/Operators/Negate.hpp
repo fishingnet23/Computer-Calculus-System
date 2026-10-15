@@ -18,6 +18,7 @@ public:
     virtual std::string getName() const override {return "-";}
     virtual Format getFormat() const override {return OpDefinition::Format::PREFIX;}
     virtual int getPrecedence() const override {return 10;}
+    virtual int getCanonArgumentCount() const override {return 1;}
 
 };
 }

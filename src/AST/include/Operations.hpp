@@ -17,7 +17,7 @@ namespace AST
     private:
         static const std::map<std::string, std::shared_ptr<const OpDefinition>> map;
     public:
-        static std::shared_ptr<const OpDefinition> get(const std::string& name)
+        static const std::shared_ptr<const OpDefinition>& get(const std::string& name)
         {
             auto it = map.find(name);
             if (it != map.end()) {

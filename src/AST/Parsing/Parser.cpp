@@ -3,238 +3,99 @@
 
 namespace AST
 {
-Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
-{
-    OperatorContext result{ nullptr, nullptr,0 };
-
-    int depth = 0;
-    int bestPriority = std::numeric_limits<int>::max();
-
-    if (tokens.size() < end || start > tokens.size() || start >= end)
-        throw std::runtime_error("out of bounds!" + std::to_string(start) + " " + std::to_string(end) + " " + std::to_string(tokens.size()));
-
-    for (size_t i = start; i < end; ++i)
-    {
-        const Token& token = tokens[i];
-
-        if ((token.type== TokenType::IDENTIFIER||token.type == TokenType::OPERATION) && (i + 1 < end) && tokens[i + 1].type == TokenType::L_BRACKET)
-        {
-            auto op = OpRegistry::get(token.value);
-            if (op && op->getFormat() == OpDefinition::Format::EXPLICIT_FUNCTION)
-            {
-                // if already nested, just let regular depth tracking handle it
-                if (depth == 0)
-                {
-                    int funcDepth = 0;
-                    size_t j = i + 1;
-                    for (; j < end; ++j)
-                    {
-                        if (tokens[j].type == TokenType::L_BRACKET) ++funcDepth;
-                        else if (tokens[j].type == TokenType::R_BRACKET) --funcDepth;
-
-                        if (funcDepth == 0) break;
-                    }
-                    // if the function covers the whole outer span, it's the root
-                    if (i == start && j == end - 1)
-                    {
-                        result.token = &token;
-                        result.index = i;
-                        result.op = op;
-                        return result;
-                    }
-                    
-                }
-            }
-        }
-
-        if (token.type == TokenType::L_BRACKET)
-        {
-            ++depth;
-            continue;
-        }
-
-        if (token.type == TokenType::R_BRACKET)
-        {
-            --depth;
-            continue;
-        }
-
-        // operators inside brackets must be ignored at this level
-        if (depth != 0)
-            continue;
-
-        auto op = OpRegistry::get(token.value);
-
-        // not an operator
-        if (!op)
-            continue;
-
-        int priority = op->getPrecedence();
-        bool r_associative = op->hasProperty(OpProperty::RIGHT_ASSOCIATIVE) || op->hasProperty(OpProperty::TRUE_ASSOCIATIVE);
-        bool l_associative = op->hasProperty(OpProperty::LEFT_ASSOCIATIVE) || op->hasProperty(OpProperty::TRUE_ASSOCIATIVE);
-        // If the operator is left associative only, we want to consider the right most operator as the root.
-        // Otherwise, we can consider the left most operator as the root (implicit right associativity).
-
-        if (priority < bestPriority || (priority == bestPriority && l_associative))
-        {
-            bestPriority = priority;
-            result.token = &token;
-            result.index = i;
-            result.op = op;
-        }
-    }
-
-    return result;
-}
 
 Parser::Parser(const std::vector<Token>& tokens):tokens(tokens){}
 
-NodePtr Parser::parseTokens()
+void Parser::finalizeOperator(std::vector<NodePtr>& output, std::vector<Parser::opStackData>& operators)
 {
-	return parseTokens(0,tokens.size());
-}
-bool Parser::isWrappedInBrackets(size_t start, size_t end)
-{
-    if (tokens[start].type != TokenType::L_BRACKET ||
-        tokens[end - 1].type != TokenType::R_BRACKET)
-        return false;
-
-    int depth = 0;
-
-    for (size_t i = start; i < end; ++i)
-    {
-        if (tokens[i].type == TokenType::L_BRACKET)
-            ++depth;
-
-        else if (tokens[i].type == TokenType::R_BRACKET)
-            --depth;
-
-        // The first pair closes before the end,
-        // meaning these aren't wrapping the whole expression.
-        if (depth <= 0 && i != end - 1)
-            return false;
-    }
-
-    return true;
-}
-NodePtr Parser::parseTokens(size_t start, size_t end)
-{
-
-	// single token case
-	if (end - start == 1)
-	{
-		const Token& token = tokens[start];
-
-		if (token.type == TokenType::LITERAL)
-			return NodeFactory::makeNumber(token.value);
-
-		if (token.type == TokenType::IDENTIFIER || token.type == TokenType::OPERATION)
-            return NodeFactory::makeVariable(token.value);
-		throw std::runtime_error("Unexpected token: " + token.value);
-	}
-
-    if (isWrappedInBrackets(start, end))
-    {
-        return parseTokens(start + 1, end - 1);
-    }
-
-    OperatorContext root = getRootOperator(start,end);
-    NodePtr rootNode;
-    if (root.token == nullptr)
-    {
-        // Range is empty or invalid sub-expression
-        if (start >= end)
-            throw std::runtime_error("Empty or invalid token range");
-
-        throw std::runtime_error("Unable to parse expression in range [" +
-            std::to_string(start) + ", " + std::to_string(end) + "]");
-    }
-
-    if (root.op->getFormat() == OpDefinition::Format::INFIX)
-    {
-        NodePtr left = parseTokens(start, root.index);
-        NodePtr right = parseTokens(root.index + 1, end);
-        std::vector<NodePtr> args;
-
-        if (root.op->hasProperty(OpProperty::COMMUTATIVE))
-        {
-            if (left->toString() > right->toString())
-                args = { right,left };
-            else
-                args = { left,right };
-        }
-        else
-        {
-            args = { left,right };
-        }
-        rootNode = NodeFactory::makeOperator(root.token->value,args);
-    }   
-    else if (root.op->getFormat() == OpDefinition::Format::PREFIX)
-    {
-        NodePtr inner = parseTokens(root.index+1,end);
-        rootNode = NodeFactory::makeOperator(root.token->value, std::vector<NodePtr>{inner});
-    }
-    else if (root.op->getFormat() == OpDefinition::Format::POSTFIX)
-    {
-        NodePtr inner = parseTokens(start, root.index);
-        rootNode = NodeFactory::makeOperator(root.token->value, std::vector<NodePtr>{inner});
-    }
-    else if(root.op->getFormat() == OpDefinition::Format::EXPLICIT_FUNCTION)
-    {
-        if ((root.index + 2 >= end) || (tokens[root.index + 1].type != TokenType::L_BRACKET))
-        {
-            throw std::runtime_error("Explicit functions require brackets!");
-        }
-
-        std::vector<NodePtr> arguments = {};
-        arguments.reserve(3);
-        
-        size_t subStart = root.index + 2; 
-        
-        int localDepth = 0;
-        
-        // Loop through all tokens inside the function window
-        for (size_t i = root.index + 2; i < end; i++)
-        {
-            
-            if (tokens[i].type == TokenType::L_BRACKET)
-            {
-                ++localDepth;
-            }
-            else if (tokens[i].type == TokenType::R_BRACKET)
-            {
-                --localDepth;
-            }
-
-            // 1. If we find a top-level comma, split the argument
-            if (tokens[i].value == "," && localDepth == 0)
-            {
-                size_t subEnd = i;
-                if (subStart < subEnd) {
-                    arguments.push_back(parseTokens(subStart, subEnd));
-                }
-                subStart = i + 1;
-            }
-            // 2. If localDepth hits -1, we found the EXACT closing bracket for THIS function
-            else if (localDepth == -1)
-            {
-                size_t subEnd = i;
-                if (subStart < subEnd) {
-                    arguments.push_back(parseTokens(subStart, subEnd));
-                }
-                break; // Safely stop processing arguments for this function level
-            }
-        }
-        
-        rootNode = NodeFactory::makeOperator(root.token->value, arguments);
-    }
-
-    else
-    {
-        throw std::runtime_error("Not implemented exception!");
-    }
-
-    return rootNode;
+    auto& last = operators.back();
+    auto opDefinition = OpRegistry::get(last.token.value);
+    if(!opDefinition) // if operators was made correct, not needed, extra safety
+        throw std::runtime_error("Unknown operator! " + last.token.value);
     
+    int argumentCount = opDefinition->getCanonArgumentCount();
+    std::vector<NodePtr> arguments = {};
+    arguments.reserve(argumentCount);
+
+    for(int i=argumentCount-1;i > -1;i--)
+    {
+        arguments[i] = output.back();
+        output.pop_back();
+    }
+
+    NodePtr op = NodeFactory::makeOperator(last.token.value, arguments);
+    output.push_back(op);
+    operators.pop_back();
+
+}
+
+
+
+std::vector<NodePtr> Parser::parseTokens() const
+{
+    std::vector<NodePtr> output;
+    std::vector<opStackData> operators;
+
+    for(const auto& token : tokens)
+    {
+        if(token.type == TokenType::NUMBER)
+            output.push_back(NodeFactory::makeNumber(token.value));
+        else if(token.type == TokenType::VARIABLE)
+            output.push_back(NodeFactory::makeVariable(token.value));
+        else if(token.type == TokenType::L_BRACKET)
+            operators.push_back({token,0});
+        else if(token.type == TokenType::R_BRACKET)
+        {
+            while(!operators.empty() && operators.back().token.type != TokenType::L_BRACKET)
+            {
+                finalizeOperator(output,operators);
+            }
+            if(operators.empty())
+                throw std::runtime_error("Missmatched brackets!");
+            operators.pop_back();
+        }
+        else if(token.type == TokenType::OPERATION)
+        {
+            auto opDefinition = OpRegistry::get(token.value);
+            if(!opDefinition)
+                throw std::runtime_error("Unknown operator! " + token.value);
+
+            while(!operators.empty())
+            {    
+                if(operators.back().token.type == TokenType::L_BRACKET) // not a real operator, just a syntax marker
+                    break;
+
+                int topPrecedence = operators.back().precedence;
+                int incomingPrecedence = opDefinition->getPrecedence();
+                bool isRightAssoc = opDefinition->hasProperty(OpProperty::RIGHT_ASSOCIATIVE);
+
+                if ((!isRightAssoc && topPrecedence >= incomingPrecedence) || 
+                    (isRightAssoc && topPrecedence > incomingPrecedence))
+                    finalizeOperator(output, operators);
+                else
+                    break;
+            }
+            operators.push_back({token, opDefinition->getPrecedence()});
+        }
+    }
+
+    // final build
+    while(!operators.empty()) 
+    {
+    if(operators.back().token.type == TokenType::L_BRACKET)
+        throw std::runtime_error("Mismatched brackets!");
+        
+    finalizeOperator(output, operators);
+    }
+
+    return output;
+}
+NodePtr Parser::buildAST() const
+{
+    std::vector<NodePtr> finalAST = parseTokens();
+
+    if(finalAST.size() != 1)
+        throw std::runtime_error("Malformed Syntax Tree! Operations and arguments were entered too many, too little or wrongly. Ensure correct math syntax!");
+    return finalAST[0]
 }
 };

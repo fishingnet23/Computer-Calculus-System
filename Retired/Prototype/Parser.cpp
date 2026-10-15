@@ -17,10 +17,10 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
     {
         const Token& token = tokens[i];
 
-        if ((token.type== TokenType::IDENTIFIER||token.type == TokenType::OPERATION) && (i + 1 < end) && tokens[i + 1].type == TokenType::L_BRACKET)
+        if ((token.type== TokenType::VARIABLE||token.type == TokenType::OPERATION) && (i + 1 < end) && tokens[i + 1].type == TokenType::L_BRACKET)
         {
-            auto pair = registry.getRegistry().find(token.value);
-            if (pair != registry.getRegistry().end() && pair->second->format == OpDefiniton::Format::EXPLICIT_FUNCTION)
+            auto op = OpRegistry::get(token.value);
+            if (op && op->getFormat() == OpDefinition::Format::EXPLICIT_FUNCTION)
             {
                 // if already nested, just let regular depth tracking handle it
                 if (depth == 0)
@@ -39,7 +39,7 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
                     {
                         result.token = &token;
                         result.index = i;
-                        result.op = pair->second.get();
+                        result.op = op;
                         return result;
                     }
                     
@@ -63,17 +63,15 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
         if (depth != 0)
             continue;
 
-        auto pair = registry.getRegistry().find(token.value);
+        auto op = OpRegistry::get(token.value);
 
         // not an operator
-        if (pair == registry.getRegistry().end())
+        if (!op)
             continue;
 
-        int priority = pair->second->precedence;
-        const MultiArg_OpDefinition* b_op = dynamic_cast<const MultiArg_OpDefinition*>(pair->second.get());
-        bool r_associative = b_op!=nullptr && b_op->hasProperty(MultiArg_OpDefinition::Property::BINARY_RIGHT_ASSOCIATIVE);
-        bool l_associative = b_op!=nullptr && b_op->hasProperty(MultiArg_OpDefinition::Property::BINARY_LEFT_ASSOCIATIVE);
-
+        int priority = op->getPrecedence();
+        bool r_associative = op->hasProperty(OpProperty::RIGHT_ASSOCIATIVE) || op->hasProperty(OpProperty::TRUE_ASSOCIATIVE);
+        bool l_associative = op->hasProperty(OpProperty::LEFT_ASSOCIATIVE) || op->hasProperty(OpProperty::TRUE_ASSOCIATIVE);
         // If the operator is left associative only, we want to consider the right most operator as the root.
         // Otherwise, we can consider the left most operator as the root (implicit right associativity).
 
@@ -82,14 +80,12 @@ Parser::OperatorContext Parser::getRootOperator(size_t start, size_t end)
             bestPriority = priority;
             result.token = &token;
             result.index = i;
-            result.op = pair->second.get();
+            result.op = op;
         }
     }
 
     return result;
 }
-
-Parser::Parser(const std::vector<Token>& tokens, const OperationRegistry& registry):tokens(tokens),registry(registry){}
 
 NodePtr Parser::parseTokens()
 {
@@ -127,11 +123,11 @@ NodePtr Parser::parseTokens(size_t start, size_t end)
 	{
 		const Token& token = tokens[start];
 
-		if (token.type == TokenType::LITERAL)
-			return std::make_shared<NumberNode>(token.value);
+		if (token.type == TokenType::NUMBER)
+			return NodeFactory::makeNumber(token.value);
 
-		if (token.type == TokenType::IDENTIFIER || token.type == TokenType::OPERATION)
-            return std::make_shared<VariableNode>(token.value);
+		if (token.type == TokenType::VARIABLE || token.type == TokenType::OPERATION)
+            return NodeFactory::makeVariable(token.value);
 		throw std::runtime_error("Unexpected token: " + token.value);
 	}
 
@@ -152,18 +148,14 @@ NodePtr Parser::parseTokens(size_t start, size_t end)
             std::to_string(start) + ", " + std::to_string(end) + "]");
     }
 
-    if (root.op->format == OpDefiniton::Format::INFIX)
+    if (root.op->getFormat() == OpDefinition::Format::INFIX)
     {
-        // This is a binary operator, so we will try to apply smart parsing rules like associativity and precedence.
         NodePtr left = parseTokens(start, root.index);
         NodePtr right = parseTokens(root.index + 1, end);
-        const MultiArg_OpDefinition* b_op = dynamic_cast<const MultiArg_OpDefinition*>(root.op);
         std::vector<NodePtr> args;
 
-        if (b_op && b_op->hasProperty(MultiArg_OpDefinition::Property::COMMUTATIVE))
+        if (root.op->hasProperty(OpProperty::COMMUTATIVE))
         {
-            // If the operator is commutative, we can sort the arguments to make the tree more canonical.
-            // This is useful for simplification and comparison of expressions.
             if (left->toString() > right->toString())
                 args = { right,left };
             else
@@ -173,19 +165,19 @@ NodePtr Parser::parseTokens(size_t start, size_t end)
         {
             args = { left,right };
         }
-        rootNode = std::make_shared<OperatorNode>(root.token->value, args,registry);
+        rootNode = NodeFactory::makeOperator(root.token->value,args);
     }   
-    else if (root.op->format == OpDefiniton::Format::PREFIX)
+    else if (root.op->getFormat() == OpDefinition::Format::PREFIX)
     {
         NodePtr inner = parseTokens(root.index+1,end);
-        rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<NodePtr>{inner}, registry);
+        rootNode = NodeFactory::makeOperator(root.token->value, std::vector<NodePtr>{inner});
     }
-    else if (root.op->format == OpDefiniton::Format::POSTFIX)
+    else if (root.op->getFormat() == OpDefinition::Format::POSTFIX)
     {
         NodePtr inner = parseTokens(start, root.index);
-        rootNode = std::make_shared<OperatorNode>(root.token->value, std::vector<NodePtr>{ inner }, registry);
+        rootNode = NodeFactory::makeOperator(root.token->value, std::vector<NodePtr>{inner});
     }
-    else if(root.op->format == OpDefiniton::Format::EXPLICIT_FUNCTION)
+    else if(root.op->getFormat() == OpDefinition::Format::EXPLICIT_FUNCTION)
     {
         if ((root.index + 2 >= end) || (tokens[root.index + 1].type != TokenType::L_BRACKET))
         {
@@ -232,7 +224,7 @@ NodePtr Parser::parseTokens(size_t start, size_t end)
             }
         }
         
-        rootNode = std::make_shared<OperatorNode>(root.token->value, arguments, registry);
+        rootNode = NodeFactory::makeOperator(root.token->value, arguments);
     }
 
     else

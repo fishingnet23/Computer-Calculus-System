@@ -11,10 +11,9 @@ enum class TokenType
 	UNKNOWN = -1,
 	L_BRACKET = 0,
 	R_BRACKET = 1,
-	IDENTIFIER = 2,
-	LITERAL = 3,
+	VARIABLE = 2,
+	NUMBER = 3,
 	OPERATION = 4,
-	PREFIX = 5,
 };
 
 class Token
@@ -36,14 +35,12 @@ inline std::ostream& operator <<(std::ostream& out, const TokenType& type)
 		out << "L_BRACKET";
 	else if (type == TokenType::R_BRACKET)
 		out << "R_BRACKET";
-	else if (type == TokenType::IDENTIFIER)
-		out << "IDENTIFIER";
-	else if (type == TokenType::LITERAL)
-		out << "LITERAL";
+	else if (type == TokenType::VARIABLE)
+		out << "VARIABLE";
+	else if (type == TokenType::NUMBER)
+		out << "NUMBER";
 	else if (type == TokenType::OPERATION)
 		out	<< "OPERATION";
-	else if (type == TokenType::PREFIX)
-		out << "PREFIX";
 	else
 		out << "UNKNOWN";
 	return out;

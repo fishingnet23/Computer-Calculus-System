@@ -10,21 +10,19 @@ class Parser
 {
 private:
 	const std::vector<Token>& tokens;
-	struct OperatorContext
+
+	struct opStackData // used over a direct op definition because it needs to support things that dont have to live on the AST too
 	{
-		const Token* token;
-		std::shared_ptr<const OpDefinition> op;
-		size_t index;
+		const Token& token;
 		int precedence;
+
 	};
-	OperatorContext getRootOperator(size_t start, size_t end);
+
 public:
-	Parser(const std::vector<Token>& tokens);
+	Parser::Parser(const std::vector<Token>& tokens):tokens(tokens){}
 
-
-
-	NodePtr parseTokens();
-	bool isWrappedInBrackets(size_t start, size_t end);
-	NodePtr parseTokens(size_t contextStart, size_t contextEnd);
+	std::vector<NodePtr> parseTokens() const;
+	static void finalizeOperator(std::vector<NodePtr>& output, std::vector<Parser::opStackData>& operators); // pops operators, builds from arguments and reinserts into output
+	NodePtr buildAST() const; // wrapper function, outside callers dont care about the intermediate step
 };
 };

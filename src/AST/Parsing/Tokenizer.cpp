@@ -17,7 +17,7 @@ Token Tokenizer::extractLiteral()
         token += src[pos];
         pos++;
     }
-    return Token(TokenType::LITERAL, token);
+    return Token(TokenType::NUMBER, token);
 }
 
 Token Tokenizer::extractIdentifier()
@@ -35,7 +35,7 @@ Token Tokenizer::extractIdentifier()
             return Token(TokenType::OPERATION, token, format);
 
     }
-    return Token(TokenType::IDENTIFIER, token);
+    return Token(TokenType::VARIABLE, token);
 }
 Token Tokenizer::extractUnknown()
 {
@@ -118,30 +118,30 @@ std::vector<Token> Tokenizer::tokenize()
     {
         auto& token = res[i];
         
-        if(token.type == TokenType::LITERAL || token.type == TokenType::IDENTIFIER || token.type == TokenType::R_BRACKET)
+        if(token.type == TokenType::NUMBER || token.type == TokenType::VARIABLE || token.type == TokenType::R_BRACKET)
         {
             // check if the next token is an identifier/bracket, if it is, implicit multiplication
-            if(i+1 < res.size() && (res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::LITERAL || res[i+1].type == TokenType::L_BRACKET || res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefinition::Format::PREFIX))
+            if(i+1 < res.size() && (res[i+1].type == TokenType::VARIABLE || res[i+1].type == TokenType::NUMBER || res[i+1].type == TokenType::L_BRACKET || res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefinition::Format::PREFIX))
             {
                 // insert a multiplication operator between the two tokens
                 res.insert(res.begin() + i + 1, Token(TokenType::OPERATION, "[implicit*]"));
                 i++; // skip the next token since we just inserted a new one
             }
         }
-        else if(token.value == "-")
-        {
-            // check if the next token is a literal or identifier, if it is, change the token to a unary minus operator
-            if(i+1 < res.size() && (res[i+1].type == TokenType::LITERAL || res[i+1].type == TokenType::IDENTIFIER || res[i+1].type == TokenType::L_BRACKET|| res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefinition::Format::PREFIX))
-            {
-                // if the previous token is a literal or identifier, keep it binary subtraction
-                if(i > 0 && (res[i-1].type == TokenType::LITERAL || res[i-1].type == TokenType::IDENTIFIER || res[i-1].type == TokenType::R_BRACKET))
-                {
-                    continue;
-                }
-                res[i] = Token(TokenType::OPERATION, "unary-"); // change the token to a unary minus operator                
-                i++;
-            }
-        }
+        // else if(token.value == "-")
+        // {
+        //     // check if the next token is a literal or identifier, if it is, change the token to a unary minus operator
+        //     if(i+1 < res.size() && (res[i+1].type == TokenType::NUMBER || res[i+1].type == TokenType::VARIABLE || res[i+1].type == TokenType::L_BRACKET|| res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefinition::Format::PREFIX))
+        //     {
+        //         // if the previous token is a literal or identifier, keep it binary subtraction
+        //         if(i > 0 && (res[i-1].type == TokenType::NUMBER || res[i-1].type == TokenType::VARIABLE || res[i-1].type == TokenType::R_BRACKET))
+        //         {
+        //             continue;
+        //         }
+        //         res[i] = Token(TokenType::OPERATION, "unary-"); // change the token to a unary minus operator                
+        //         i++;
+        //     }
+        // }
     }
     for(auto arg:res)
     {
