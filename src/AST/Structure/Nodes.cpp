@@ -138,6 +138,7 @@ namespace AST
     void OperatorNode::unify()
     {
 
+        std::cout << "Pre unification: " << postFixNotation() << std::endl;
         // unify children (during expansion/simplification, they may become disorderly again despite the bottom up approach)
         for(auto& arg : arguments)
             if(auto innerOp = toOperator(arg))
@@ -172,10 +173,12 @@ namespace AST
         {
             std::sort(arguments.begin(), arguments.end(), canonicalLess);
         }
+        std::cout << "Post unification: " << postFixNotation() << std::endl;
     }
 
     std::shared_ptr<Node> OperatorNode::simplify()
     {
+        std::cout << "Pre simplification: " << postFixNotation() << std::endl;
         unify();
         // simplify locally then try recursively
         auto cleaned = op->applySimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));
@@ -199,13 +202,16 @@ namespace AST
         cleanedOp->acquireArguments(simplifiedArgs);
         cleanedOp->unify();
 
-        return cleanedOp->getOpDefinition()->applySimplification(cleanedOp);
+        auto final = cleanedOp->getOpDefinition()->applySimplification(cleanedOp);
+        std::cout << "Post simplification: " << final->postFixNotation() << std::endl;
+        return final;
     }
 
 
 
     NodePtr OperatorNode::expand()
     {
+        std::cout << "Pre expansion: " << postFixNotation() << std::endl;
         unify();
 
         // perform shallow cleaning
@@ -215,7 +221,7 @@ namespace AST
             return cleaned;
 
         std::vector<NodePtr> expandedArgs;
-        expandedArgs.reserve(arguments.size());
+        expandedArgs.reserve(cleanedOp->arguments.size());
 
         for(auto& arg : cleanedOp->getArguments())
         {
@@ -227,9 +233,11 @@ namespace AST
             }
         }
         cleanedOp->acquireArguments(expandedArgs);
-        unify();
+        cleanedOp->unify();
 
-        return cleanedOp->getOpDefinition()->applyExpansion(std::static_pointer_cast<OperatorNode>(cleanedOp));
+        auto final = cleanedOp->getOpDefinition()->applyExpansion(std::static_pointer_cast<OperatorNode>(cleanedOp));
+        std::cout << "Post expansion: " << final->postFixNotation() << std::endl;
+        return final;
     }
     std::shared_ptr<Node> OperatorNode::canonicalize()
     {
