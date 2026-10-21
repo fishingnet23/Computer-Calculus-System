@@ -4,7 +4,7 @@ namespace AST
 NodePtr Tree::parseTokens(const std::vector<Token> &tokens)
 {
     Parser parser(tokens);
-    return parser.parseTokens();
+    return parser.buildAST();
 }
 Tree::Tree(const std::vector<Token> &tokens)
 {

@@ -15,13 +15,13 @@ namespace AST
     class OpRegistry
     {
     private:
-        static const std::map<std::string, std::shared_ptr<const OpDefinition>> map;
+        static const std::map<std::string, std::unique_ptr<const OpDefinition>> map;
     public:
-        static const std::shared_ptr<const OpDefinition>& get(const std::string& name)
+        static std::shared_ptr<OpDefinition> get(const std::string& name)
         {
             auto it = map.find(name);
             if (it != map.end()) {
-                return it->second;
+                return it->second->clone();
             }
             return nullptr;
         }

@@ -28,13 +28,13 @@ int main() {
         std::cout << "raw AST: " << tree.postfixNotation() << std::endl;
         tree.cannonize();
     }
-    catch(const std::runtime_error& e)
+    catch(const std::exception& e)
     {
         e.what();
         continue;
     }
-    std::cout << tree.postfixNotation() << std::endl;
-
+    std::cout <<"FINAL OUTPUT IN POSTFIX: " <<tree.postfixNotation() << std::endl;
+    std::cout <<"FINAL OUTPUT: " << tree.toString() << std::endl;
     std::cout << "Enter variables and values seperated by commas: " << std::endl;
     std::string vars;
     std::getline(std::cin, vars);

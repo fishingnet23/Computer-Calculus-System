@@ -34,15 +34,7 @@ namespace AST
         if (varA->getName() != varB->getName())
             return varA->getName() < varB->getName();
 
-        if (varA->getDegree() != varB->getDegree())
-            return varA->getDegree() < varB->getDegree();
-
-        if(varA->getCoeff()!=varB->getCoeff())
-        {
-            return varA->getCoeff() < varB->getCoeff();
-        }
-        
-        return varA->rawToString()<varB->rawToString(); // string comparison as absolute fallback
+        return varA->toString()<varB->toString(); // string comparison as absolute fallback
     }
 
     
@@ -81,20 +73,13 @@ namespace AST
 
     std::shared_ptr<Node> Symbol::simplify()
     {
-        if(coefficient == 0)
-            return std::make_shared<NumberNode>(0);
-        else if(degree == 0)
-        {
-            return std::make_shared<NumberNode>(coefficient);
-        }
-
         return this->shared_from_this();
     }
 
     double VariableNode::evaluate(const Environment &env) const
     {
         double value = env[this->getName()];
-        return this->getCoeff()*std::pow(value,this->getDegree());
+        return value;
     }
     
 
@@ -113,13 +98,15 @@ namespace AST
         }
         return true;
     }
-    OperatorNode::OperatorNode(const std::vector<NodePtr>& args, std::shared_ptr<const OpDefinition>& op)
-    : Symbol(op ? op->getName() : "OP", 1, 1), op(op), arguments(args)
-    {}
 
-    OperatorNode::OperatorNode(const std::vector<NodePtr>& args, std::shared_ptr<const OpDefinition>& op, double coeff, double degree)
-        : Symbol(op ? op->getName() : "OP", coeff, degree), op(op), arguments(args)
-    {}
+    OperatorNode::OperatorNode(const std::vector<NodePtr> &args, const std::shared_ptr<const OpDefinition> &op)
+        : Symbol(op ? op->getName() : "OP"), op(op),arguments(args){}
+
+    OperatorNode::OperatorNode(const std::vector<NodePtr>& args, const std::shared_ptr<const OpDefinition>& op, double coeff, double degree)
+        : Symbol(op ? op->getName() : "OP"), op(op) ,arguments(args)
+    {
+        // to do: add clone to op because cant construct a pure virtual function
+    }
 
     OperatorNode::OperatorNode(const OperatorNode& other) 
         : Symbol(other), op(other.op)
@@ -199,10 +186,10 @@ namespace AST
             }
         }
         
-        cleanedOp->acquireArguments(simplifiedArgs);
+        cleanedOp->setArguments(simplifiedArgs);
         cleanedOp->unify();
 
-        auto final = cleanedOp->getOpDefinition()->applySimplification(cleanedOp);
+        auto final = cleanedOp->getDefinition()->applySimplification(cleanedOp);
         std::cout << "Post simplification: " << final->postFixNotation() << std::endl;
         return final;
     }
@@ -235,7 +222,7 @@ namespace AST
         cleanedOp->acquireArguments(expandedArgs);
         cleanedOp->unify();
 
-        auto final = cleanedOp->getOpDefinition()->applyExpansion(std::static_pointer_cast<OperatorNode>(cleanedOp));
+        auto final = cleanedOp->getDefinition()->applyExpansion(std::static_pointer_cast<OperatorNode>(cleanedOp));
         std::cout << "Post expansion: " << final->postFixNotation() << std::endl;
         return final;
     }
@@ -250,7 +237,7 @@ namespace AST
         return opPtr->simplify(); 
     }
 
-    const std::string OperatorNode::rawToString() const
+    const std::string OperatorNode::toString() const
     {
         return op->toString(arguments);
     }
@@ -264,7 +251,7 @@ namespace AST
             values.push_back(arg->evaluate(env));
         }
         double baseResult = op->evaluate(values);
-        return this->getCoeff() * std::pow(baseResult, this->getDegree());
+        return baseResult;
     }
 
 };

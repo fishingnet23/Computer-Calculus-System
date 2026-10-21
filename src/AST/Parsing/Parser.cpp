@@ -14,10 +14,9 @@ void Parser::finalizeOperator(std::vector<NodePtr>& output, std::vector<Parser::
         throw std::runtime_error("Unknown operator! " + last.token.value);
     
     int argumentCount = opDefinition->getCanonArgumentCount();
-    std::vector<NodePtr> arguments = {};
-    arguments.reserve(argumentCount);
+    std::vector<NodePtr> arguments(argumentCount);
 
-    for(int i=argumentCount-1;i > -1;i--)
+    for(int i=argumentCount-1;i >= 0;i--)
     {
         arguments[i] = output.back();
         output.pop_back();
@@ -96,6 +95,6 @@ NodePtr Parser::buildAST() const
 
     if(finalAST.size() != 1)
         throw std::runtime_error("Malformed Syntax Tree! Operations and arguments were entered too many, too little or wrongly. Ensure correct math syntax!");
-    return finalAST[0]
+    return finalAST[0];
 }
 };

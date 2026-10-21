@@ -20,17 +20,6 @@ namespace AST
         if(opNode->getArguments().size() == 1)
         {
             auto child = opNode->getArguments()[0];
-
-            // apply external metadata before collapse
-            if(auto* symbol = child->asSymbol())
-            {
-                symbol->setCoeff(symbol->getCoeff()*opNode->getCoeff());
-                symbol->setDegree(symbol->getDegree()*opNode->getDegree());
-            }
-            else if(auto* number = child->asNumber())
-            {    
-                number->setValue(opNode->getCoeff()*std::pow(number->getValue(),opNode->getDegree()));
-            }
             return child;
         }
 
@@ -40,18 +29,9 @@ namespace AST
         for(int i=1;i<originalArgs.size();i++)
         {
             auto& child = originalArgs[i];
-            
-            // negate the child
-            if(auto* symbol = child->asSymbol())
-            {
-                symbol->setCoeff(symbol->getCoeff()*-1);
-            }
-            else if(auto* number = child->asNumber())
-            {    
-                number->setValue(-number->getValue());
-            }
-
-            args.push_back(child);
+            auto neg1 = NodeFactory::makeNumber(-1);
+            auto negated = NodeFactory::makeOperator("*",std::vector<NodePtr>{neg1,child});
+            args.push_back(negated);
         }
         
 

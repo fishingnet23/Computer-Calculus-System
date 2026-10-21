@@ -13,6 +13,7 @@ namespace AST
     }
     NodePtr Multiply::applySymbolicIdentities(OpPtr opNode) const
     {
+
         return opNode->shared_from_this();
     }
     NodePtr Multiply::applySimplification(OpPtr opNode) const
@@ -35,16 +36,34 @@ namespace AST
 
                 symbolMap.setConstant(symbolMap.getConstant() * number->getValue());
             }
-            else if(auto* symbol = arg->asSymbol())
+            else if(const auto& symbol = toSymbol(arg))
             {
-                double symCoeff = symbol->getCoeff();
-                double symDegree = symbol->getDegree();
+                double symCoeff = 1;
+                double symDegree = 1;
                 std::string identifier;
-                if(const auto* innerOp = symbol->asOperator())
-                    identifier = innerOp->rawToString();
+                SymbolPtr finalNode = symbol;
+
+                if(const auto& innerOp = toOperator(arg))
+                {
+                    if(innerOp->getName() == "^")
+                    {
+                        const auto& innerArgs = innerOp->getArguments();
+                        if(innerArgs.size() != 2)
+                            throw std::runtime_error("Malformed power node detected in multiplication!");
+                        const auto& exponentNumber = toNumber(innerArgs[1]);
+                        const auto& symbolBase = toSymbol(innerArgs[0]);
+                        if(exponentNumber&&symbolBase)
+                        {
+                           symDegree = exponentNumber->getValue();
+                           finalNode = symbolBase;
+                        }
+                    }
+
+                    identifier = finalNode->toString();
+                }
                 else
-                    identifier = symbol->getName();
-                symbolMap.insertOrAccumulate(identifier, symbol, [symCoeff, symDegree](double& coeff, double& degree){
+                    identifier = finalNode->getName();
+                symbolMap.insertOrAccumulate(identifier, finalNode, [symCoeff, symDegree](double& coeff, double& degree){
 
                     coeff *= symCoeff;
                     degree += symDegree;
@@ -54,7 +73,8 @@ namespace AST
         
         const auto& map = symbolMap.get();
         std::vector<NodePtr> newArgs;
-
+        if(symbolMap.getConstant() != 1.0)
+            newArgs.push_back(NodeFactory::makeNumber(symbolMap.getConstant()));
         // rebuild args
         for(const auto& [name, OpData] : map)
         {
@@ -69,40 +89,26 @@ namespace AST
                 {
 
                     NodePtr termNode = OpData.originalNode->clone(); 
-                    
-                    if (auto* symbolInterface = termNode->asSymbol()) 
+                    NodePtr finalNode = termNode;
+                    if(degree != 1)
                     {
-                        symbolInterface->setCoeff(coeff);
-                        symbolInterface->setDegree(degree);
+                        finalNode = NodeFactory::makeOperator("^",{termNode, NodeFactory::makeNumber(degree)});
                     }
                     
-                    newArgs.push_back(std::move(termNode));
+                    newArgs.push_back(std::move(finalNode));
                 }
             }
         }
         args = std::move(newArgs);
-        // apply constant
-        opNode->setCoeff(opNode->getCoeff() * symbolMap.getConstant());
-
         // node reduction checks
         if(args.size() == 0)
-            return NodeFactory::makeNumber(std::pow(opNode->getCoeff(), opNode->getDegree()));
+            return NodeFactory::makeNumber(0);
         else if (args.size() == 1)
         {
 
             NodePtr singleChild = std::move(args.front());
-            if (auto* childSymbol = singleChild->asSymbol())
-            {   // apply the metadata of this operator
-                childSymbol->setCoeff(childSymbol->getCoeff() * opNode->getCoeff());
-                childSymbol->setDegree(childSymbol->getDegree() * opNode->getDegree());
-                return singleChild;
-            }
-            else if (auto* childNum = singleChild->asNumber())
-            {
-                return NodeFactory::makeNumber(
-                    opNode->getCoeff() * std::pow(childNum->getValue(), opNode->getDegree())
-                );
-            }
+            
+            return singleChild;
         }
         
         return opNode->shared_from_this(); 
@@ -110,23 +116,18 @@ namespace AST
 
     NodePtr Multiply::applyExpansion(OpPtr opNode) const
     {
-        std::vector<NodePtr> argsCopy = opNode->getArguments();
+        std::vector<NodePtr>& args = opNode->getArguments();
         NodePtr firstAdditionNode; 
 
-        if (opNode->getCoeff() != 1.0)
-        {
-            argsCopy.push_back(NodeFactory::makeNumber(opNode->getCoeff()));
-        }
-
         // find the first addition node
-        for(size_t i = 0; i < argsCopy.size(); i++)
+        for(size_t i = 0; i < args.size(); i++)
         {
-            if(const auto innerOp = toOperator(argsCopy[i]))
+            if(const auto innerOp = toOperator(args[i]))
             {
-                if(innerOp->getName() == "+" && innerOp->getCoeff() == 1) 
+                if(innerOp->getName() == "+") 
                 {
-                    firstAdditionNode = std::move(argsCopy[i]);
-                    argsCopy.erase(argsCopy.begin() + i);
+                    firstAdditionNode = args[i];
+                    args.erase(args.begin() + i);
                     break;
                 }
             }
@@ -139,16 +140,16 @@ namespace AST
         }
 
         auto additionToDistribute = toOperator(firstAdditionNode);
-        if (additionToDistribute->getCoeff() != 1.0)
-        {
-            argsCopy.push_back(NodeFactory::makeNumber(additionToDistribute->getCoeff()));
-        }
+
         std::vector<NodePtr> newTermsToAdd;
         newTermsToAdd.reserve(additionToDistribute->getArguments().size());
 
         for(const auto& arg : additionToDistribute->getArguments())
         {
-            std::vector<NodePtr> factorPool = argsCopy;
+            // clone to recursively clone the remaining arguments
+            auto cloned = opNode->clone();
+            auto cloneOp = toOperator(cloned);
+            std::vector<NodePtr>& factorPool = cloneOp->getArguments();
             factorPool.push_back(arg);
             
             auto internalMultiplication = NodeFactory::makeOperator("*", factorPool);

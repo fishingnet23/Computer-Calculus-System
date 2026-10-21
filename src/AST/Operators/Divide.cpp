@@ -21,17 +21,6 @@ namespace AST
         if(opNode->getArguments().size() == 1)
         {
             auto child = opNode->getArguments()[0];
-
-            // apply external metadata before collapse
-            if(auto* symbol = child->asSymbol())
-            {
-                symbol->setCoeff(symbol->getCoeff()*opNode->getCoeff());
-                symbol->setDegree(symbol->getDegree()*opNode->getDegree());
-            }
-            else if(auto* number = child->asNumber())
-            {    
-                number->setValue(opNode->getCoeff()*std::pow(number->getValue(),opNode->getDegree()));
-            }
             return child;
         }
 
@@ -43,17 +32,15 @@ namespace AST
             auto& child = originalArgs[i];
             
             // inverse the child
-            auto exponentMinusOne = NodeFactory::makeNumber(-1);
-            auto invertedNode = NodeFactory::makeOperator("^", { originalArgs[i], exponentMinusOne });
-            auto crushed = toOperator(invertedNode)->simplify();
+            NodePtr exponentMinusOne = NodeFactory::makeNumber(-1);
+            OpPtr invertedNode = NodeFactory::makeOperatorPtr("^", { originalArgs[i], exponentMinusOne });
+            auto crushed = invertedNode->simplify();
             args.push_back(crushed);
 
         }
         
 
         auto mul = NodeFactory::makeOperator("*",args);
-        auto mulOp = toOperator(mul);
-
         return mul->shared_from_this();
     }
     NodePtr Divide::applySimplification(OpPtr opNode) const

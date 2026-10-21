@@ -30,6 +30,7 @@ struct Environment
     std::map<std::string,double> map;
 
     explicit Environment(const std::vector<std::string>& tokens);
+    Environment(){};
 
     double& operator[](const std::string& str){return map[str];}
     double operator[](const std::string& str) const
@@ -107,7 +108,7 @@ public:
        return AST::toString(value);
     }
     virtual const std::string postFixNotation() const override {return toString();}
-    virtual bool identical(const Node* other) const {return other->asNumber() && other->asNumber()->value == value;}
+    virtual bool identical(const Node* other) const override {return other->asNumber() && other->asNumber()->value == value;}
     
     virtual std::shared_ptr<Node> clone() const override {return std::make_shared<NumberNode>(value);} 
  
@@ -117,49 +118,27 @@ public:
 class Symbol : public Node
 {
 protected:
-    double coefficient;
-    double degree;
     std::string name;
     
 public:
     virtual Symbol* asSymbol() override {return this;}
     virtual const Symbol* asSymbol() const override {return this;}
 
-    Symbol():coefficient(1),degree(1),name("NONE"){}
-    Symbol(const std::string& name, double coeffecient, double degree):coefficient(coeffecient),degree(degree),name(name){}
-    Symbol(const Symbol& other):coefficient(other.coefficient),degree(other.degree),name(other.name){}
+    Symbol():name("NONE"){}
+    explicit Symbol(const std::string& name):name(name){}
+    explicit Symbol(const Symbol& other):name(other.name){}
 
-    double getCoeff()const {return coefficient;}
-    double getDegree()const {return degree;}
     const std::string& getName() const{return name;}
 
-    void setCoeff(double coeff){coefficient=coeff;}
-    void setDegree(double degree){this->degree = degree;}
     void setName(const std::string& name){this->name = name;}
 
-    virtual const std::string rawToString() const = 0;
-    virtual const std::string toString() const override
-    {
-        std::string str = "";
-        if(coefficient == 1 && degree == 1)
-            return rawToString();
-        
-        if(coefficient != 1)
-            str += AST::toString(coefficient);
-        if(asVariable())
-            str+= rawToString();
-        else
-            str+="(" + rawToString() + ")";
-        if(degree != 1)
-            str+= "^" + AST::toString(degree);
-        return str;
-    }
+    virtual const std::string toString() const = 0;
     virtual const std::string postFixNotation() const override {return toString();}
     virtual bool identical(const Node* other) const override{
         const Symbol* otherSymbol = other->asSymbol();
         if(!otherSymbol)
             return false;
-        return name == otherSymbol->name && coefficient == otherSymbol->coefficient && degree == otherSymbol->degree;
+        return name == otherSymbol->name;
     }
 
     virtual std::shared_ptr<Node> simplify();
@@ -174,12 +153,15 @@ public:
 
 class VariableNode: public Symbol
 {
+    // atomic variables store doubles for coefficients and degrees
+    double coeff;
+    double degree; 
 public:
-    VariableNode():Symbol(){}
-    VariableNode(const std::string&name, double coeff, double degree):Symbol(name,coeff,degree){}
-    VariableNode(const VariableNode& other):Symbol(other){}
+    VariableNode():coeff(1),degree(1),Symbol(){}
+    VariableNode(const std::string&name, double coeff, double degree):coeff(coeff),degree(degree),Symbol(name){}
+    VariableNode(const VariableNode& other):coeff(other.coeff),degree(other.degree),Symbol(other){}
     
-    virtual const std::string rawToString() const override {return name;}
+    virtual const std::string toString() const override {return name;}
     
     virtual double evaluate(const Environment& env)const override;
 
@@ -189,6 +171,10 @@ public:
     virtual NodeType type() const override {return NodeType::Variable;}
 
     virtual std::shared_ptr<Node> clone() const override {return std::make_shared<VariableNode>(*this);} 
+
+    void setCoeff(double coeff){this->coeff=coeff;}
+    void setDegree(double degree){this->degree = degree;}
+
 };
 
 class OperatorNode : public Symbol
@@ -198,13 +184,12 @@ private:
     std::vector<NodePtr> arguments;
 
 public:
-    OperatorNode(const std::vector<NodePtr>& args,std::shared_ptr<const OpDefinition>& op);
-    OperatorNode(const std::vector<NodePtr>& args,std::shared_ptr<const OpDefinition>& op, double coeff, double degree);
+    OperatorNode(const std::vector<NodePtr>& args,const std::shared_ptr<const OpDefinition>& op);
+    OperatorNode(const std::vector<NodePtr>& args,const std::shared_ptr<const OpDefinition>& op, double coeff, double degree);
     OperatorNode(const OperatorNode& other);
 
     const std::vector<NodePtr>& getArguments() const {return arguments;}
     std::vector<NodePtr>& getArguments(){return arguments;}
-    const std::shared_ptr<const OpDefinition>& getOpDefinition(){return op;}
 
     std::shared_ptr<const OpDefinition>& getDefinition(){return op;}
     void acquireArguments(const std::vector<NodePtr>& args)
@@ -224,7 +209,7 @@ public:
     std::shared_ptr<Node> canonicalize();
 
     virtual double evaluate(const Environment& env) const override;
-    virtual const std::string rawToString() const override;
+    virtual const std::string toString() const override;
 
     virtual OperatorNode* asOperator() override{return this;}
     virtual const OperatorNode* asOperator()const override{return this;}
@@ -244,30 +229,22 @@ public:
 
     virtual const std::string postFixNotation() const override 
     {
-        std::string str = "";
-
-        if(coefficient != 1)
-            str+= AST::toString(coefficient);
-        str+="(";
-        if(arguments.size() == 0)
+        std::cout << "NAME: " << name << std::endl;
+        std::cout << "ARGUMENT SIZE: " << arguments.size() << std::endl;
+          
+        std::string str = "(";
+        if(arguments.size() < 1)
         {
             return str + name +")";
         }
         str+= arguments[0]->postFixNotation();
-        for(int i=1;i<arguments.size();i++)
+        for(size_t i=1;i<arguments.size();i++)
         {
             str+= ", " +arguments[i]->postFixNotation();
         }
         str+= ", "+ name +")";
-        
-        if(degree!=1.0)
-        {
-            str+= "^" + AST::toString(degree);
-        }
         return str;
     }
-
-    
 };
 
 using SymbolPtr = std::shared_ptr<Symbol>;

@@ -1,4 +1,6 @@
 #include "OperatorDefinitions.hpp"
+#include "../include/NodeFactory.hpp"
+
 namespace AST
 {
 
@@ -89,15 +91,20 @@ const SymbolDataAccumulator::SymbolData *SymbolDataAccumulator::getSymbol(const 
     if (it == map.end()) return nullptr;
     return &(it->second);
 }
-void SymbolDataAccumulator::insertOrAccumulate(const std::string &symbolName, Symbol* node, const std::function<void(double &, double &)> &transformation)
+
+void SymbolDataAccumulator::insertOrAccumulate(const std::string &symbolName, SymbolPtr node, const std::function<void(double &, double &)> &transformation)
+{
+    insertOrAccumulate(symbolName,node,transformation,1,1);
+}
+void SymbolDataAccumulator::insertOrAccumulate(const std::string &symbolName, SymbolPtr node, const std::function<void(double &, double &)> &transformation, double originalCoeff, double originalExp)
 {
     auto& data = map[symbolName];
 
     if(!data.originalNode)
     {
-        data.originalNode = node->shared_from_this();
-        data.coeff = node->getCoeff();
-        data.degree = node->getDegree();
+        data.originalNode = node;
+        data.coeff = originalCoeff;
+        data.degree = originalExp;
         return;
     }
 
@@ -111,5 +118,18 @@ void SymbolDataAccumulator::set(const std::string &symbolName, double coeff, dou
 
     data->coeff=coeff;
     data->degree = degree;
+}
+std::vector<NodePtr> OpDefinition::reduceToSymbols(const OpPtr &op)
+{
+    const std::vector<NodePtr>& originalArgs = op->getArguments();
+    std::vector<NodePtr> args;
+    args.reserve(originalArgs.size());
+    for(size_t i=0;i<originalArgs.size();i++)
+    {
+        if(toNumber(originalArgs[i]))
+            continue;
+        args.push_back(originalArgs[i]);
+    }
+    return args;
 }
 }

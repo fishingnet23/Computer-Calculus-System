@@ -17,8 +17,9 @@ public:
     virtual std::string toString(const std::vector<NodePtr>& args) const override;
     virtual std::string getName() const override {return "-";}
     virtual Format getFormat() const override {return OpDefinition::Format::PREFIX;}
-    virtual int getPrecedence() const override {return 10;}
-    virtual int getCanonArgumentCount() const override {return 1;}
+    virtual size_t getPrecedence() const override {return 10;}
+    virtual size_t getCanonArgumentCount() const override {return 1;}
+    virtual std::shared_ptr<OpDefinition> clone() const override{return std::make_shared<Negate>(*this);};
 
 };
 }

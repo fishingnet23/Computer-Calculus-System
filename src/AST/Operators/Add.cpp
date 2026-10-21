@@ -13,26 +13,6 @@ namespace AST
     }
     NodePtr Add::applySymbolicIdentities(OpPtr opNode) const
     {
-        // DISTRIBUTIVE PROPERTY
-        if(opNode->getCoeff()!= 1.0 && opNode->getDegree() == 1.0)
-        {
-            for(auto& arg:opNode->getArguments())
-            {
-                if(auto* symbol = arg->asSymbol())
-                {
-                    symbol->setCoeff(symbol->getCoeff()*opNode->getCoeff());
-                }
-                else if(auto* number = arg->asNumber())
-                {
-                    number->setValue(number->getValue()*opNode->getCoeff());
-                }
-            }
-        opNode->setCoeff(1);
-        }
-
-        
-
-       simplifyArgsOf(opNode);
         return opNode->shared_from_this();
     }
     NodePtr Add::applySimplification(OpPtr opNode) const
@@ -47,21 +27,60 @@ namespace AST
         
         for(const auto& arg : args)
         {
+            NodePtr strippedArgument;
             if(const auto* number = arg->asNumber())
             {
                 coeffMap.setConstant(coeffMap.getConstant() + number->getValue());
+                continue; // not a symbol so shouldnt be accumulated
             }
-            else if(const auto* symbol = arg->asSymbol())
-            {
-                double coeff = symbol->getCoeff();
-                double degree = symbol->getDegree();
+            else if(const auto& symbol = toSymbol(arg))
+            { // needs reworking to ensure correct degree respect, theory is that it confuses x*x with degree 1
+                double coeff = 1;
+                double degree = 1;
                 std::string identifier;
-                if(const auto* innerOp = symbol->asOperator())
-                    identifier = innerOp->rawToString();
+                
+                if(const auto& op = toOperator(arg))
+                {
+                    if(op->getName() == "*")
+                    {
+                        if(op->getArguments().size() < 2)
+                            throw std::runtime_error("Corrupted multiplication detected!");
+                        NodePtr constant = op->getArguments()[0];
+                        const NumberNode* number = constant->asNumber();
+                        if(number)
+                        {
+                            coeff = number->getValue();
+                            std::vector<NodePtr> reducedArgs = reduceToSymbols(op);
+                            if(reducedArgs.size() == 1)
+                                strippedArgument = reducedArgs[0]; // if just one operand was symbolic
+                            else if(reducedArgs.empty()) // the operator was just hiding constants
+                            {
+                                double value = op->evaluate(Environment()); // safe to just evaluate with no variables
+                                coeffMap.setConstant(coeffMap.getConstant() + value);
+                                continue; // skip this as it's not a symbol, it's a hidden constant
+                            }
+                            else
+                                strippedArgument = NodeFactory::makeOperator("*", reducedArgs);
+                        }
+                        else
+                        {
+                            identifier = op->toString();
+                            strippedArgument = arg;
+                        }
+                    }
+                    else
+                    {
+                        identifier = op->toString();
+                        strippedArgument = arg;
+                    }
+                }
                 else
+                {
                     identifier = symbol->getName();
+                    strippedArgument = arg;
+                }
 
-                coeffMap.insertOrAccumulate(identifier, arg,coeff, degree);
+                coeffMap.insertOrAccumulate(identifier, strippedArgument, coeff, degree);
             }
         }
         
@@ -84,13 +103,12 @@ namespace AST
 
                     NodePtr termNode = OpData.originalNode->clone(); 
                     
-                    if (auto* symbolInterface = termNode->asSymbol()) 
-                    {
-                        symbolInterface->setCoeff(coeff);
-                        symbolInterface->setDegree(degree);
-                    }
-                    
-                    args.push_back(std::move(termNode));
+                    NodePtr multiplied;
+                    if(coeff!=1)
+                        multiplied = NodeFactory::makeOperator("*",{NodeFactory::makeNumber(coeff),termNode});
+                    else
+                        multiplied = termNode;
+                    args.push_back(std::move(multiplied));
                 }
             }
         }
@@ -104,18 +122,7 @@ namespace AST
         {
 
             NodePtr singleChild = std::move(args.front());
-            if (auto* childSymbol = singleChild->asSymbol())
-            {   // apply the metadata of this operator
-                childSymbol->setCoeff(childSymbol->getCoeff() * opNode->getCoeff());
-                childSymbol->setDegree(childSymbol->getDegree() * opNode->getDegree());
-                return singleChild;
-            }
-            else if (auto* childNum = singleChild->asNumber())
-            {
-                return NodeFactory::makeNumber(
-                    opNode->getCoeff() * std::pow(childNum->getValue(), opNode->getDegree())
-                );
-            }
+            return singleChild;
         }
 
         return opNode->shared_from_this(); 
@@ -135,9 +142,7 @@ namespace AST
 
         for(size_t i = 1;i<args.size();i++)
         {
-            if(!(args[i]->asSymbol() && args[i]->asSymbol()->getCoeff()<0))
-                str+=" + ";
-            str+= args[i]->toString();
+            str+=" + " + args[i]->toString();
         }
 
         return str;

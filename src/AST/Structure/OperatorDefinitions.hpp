@@ -40,6 +40,8 @@ public:
 
     OpDefinition(){};
     OpDefinition(const std::vector<OpProperty>& properties){this->properties=properties;}
+    OpDefinition( const OpDefinition& other): properties(other.properties){}
+    virtual std::shared_ptr<OpDefinition> clone() const = 0;
 
     bool hasProperty(const OpProperty& property) const;
     void addProperty(const OpProperty& property);
@@ -53,7 +55,10 @@ public:
     virtual std::string toString(const std::vector<NodePtr>& args) const = 0;
     virtual std::string getName() const = 0;
     virtual Format getFormat() const = 0;
-    virtual int getPrecedence() const = 0;
+    virtual size_t getPrecedence() const = 0;
+    virtual size_t getCanonArgumentCount() const = 0;
+
+    static std::vector<NodePtr> reduceToSymbols(const OpPtr& op);
 
 };
 
@@ -100,7 +105,7 @@ public:
 
     struct SymbolData
     {
-        NodePtr originalNode;
+        SymbolPtr originalNode;
         double coeff;
         double degree;
     };
@@ -115,7 +120,8 @@ public:
     SymbolData* getSymbol(const std::string& symbolName);
     const SymbolData* getSymbol(const std::string& symbolName) const;
     
-    void insertOrAccumulate(const std::string& symbolName, Symbol* node, const std::function<void(double&,double&)>& transformation);
+    void insertOrAccumulate(const std::string& symbolName, SymbolPtr node, const std::function<void(double&,double&)>& transformation);
+    void insertOrAccumulate(const std::string& symbolName, SymbolPtr node, const std::function<void(double&,double&)>& transformation,double originalCoeff, double originalExp);
     void set(const std::string& symbolName, double coeff, double degree);
     const std::map<std::string, SymbolData>& get()const{return map;}
     
