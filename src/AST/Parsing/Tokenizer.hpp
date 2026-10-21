@@ -8,12 +8,13 @@ namespace AST
 {
 enum class TokenType
 {
-	UNKNOWN = -1,
-	L_BRACKET = 0,
-	R_BRACKET = 1,
-	VARIABLE = 2,
-	NUMBER = 3,
-	OPERATION = 4,
+	UNKNOWN,
+	L_BRACKET,
+	R_BRACKET,
+	COMMA,
+	VARIABLE,
+	NUMBER,
+	OPERATION,
 };
 
 class Token
@@ -35,6 +36,8 @@ inline std::ostream& operator <<(std::ostream& out, const TokenType& type)
 		out << "L_BRACKET";
 	else if (type == TokenType::R_BRACKET)
 		out << "R_BRACKET";
+	else if (type == TokenType::COMMA)
+		out << "COMMA";
 	else if (type == TokenType::VARIABLE)
 		out << "VARIABLE";
 	else if (type == TokenType::NUMBER)

@@ -86,6 +86,11 @@ Token Tokenizer::next()
         pos++;
         return Token(TokenType::R_BRACKET, ")");
     }
+    if(ch == ',')
+    {
+        pos++;
+        return Token(TokenType::COMMA,",");
+    }
 
     // multicharacter literals
     if ((ch >= '0' && ch <= '9') || ch == '.')
@@ -112,7 +117,16 @@ std::vector<Token> Tokenizer::tokenize()
         res.push_back(nxt);
     }
 
-    // normalize
+    if(Config::DEBUG_MODE)
+    {
+        std::cout << "PRE NORMALIZATION: ";
+        for(auto arg:res)
+        {
+            std::cout<<arg<<", ";
+        }
+        std::cout<<std::endl;
+    }
+    // normalize tokens for parser
 
     for(size_t i=0;i<res.size();i++)
     {
@@ -121,33 +135,42 @@ std::vector<Token> Tokenizer::tokenize()
         if(token.type == TokenType::NUMBER || token.type == TokenType::VARIABLE || token.type == TokenType::R_BRACKET)
         {
             // check if the next token is an identifier/bracket, if it is, implicit multiplication
-            if(i+1 < res.size() && (res[i+1].type == TokenType::VARIABLE || res[i+1].type == TokenType::NUMBER || res[i+1].type == TokenType::L_BRACKET || res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefinition::Format::PREFIX))
+            if(i+1 < res.size() && (res[i+1].type == TokenType::VARIABLE || res[i+1].type == TokenType::NUMBER || res[i+1].type == TokenType::L_BRACKET || (res[i+1].type == TokenType::OPERATION && res[i+1].format != OpDefinition::Format::INFIX)))
             {
                 // insert a multiplication operator between the two tokens
-                res.insert(res.begin() + i + 1, Token(TokenType::OPERATION, "[implicit*]"));
+                res.insert(res.begin() + i + 1, Token(TokenType::OPERATION, "[implicit*]", OpDefinition::Format::INFIX));
                 i++; // skip the next token since we just inserted a new one
             }
         }
-        // else if(token.value == "-")
-        // {
-        //     // check if the next token is a literal or identifier, if it is, change the token to a unary minus operator
-        //     if(i+1 < res.size() && (res[i+1].type == TokenType::NUMBER || res[i+1].type == TokenType::VARIABLE || res[i+1].type == TokenType::L_BRACKET|| res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefinition::Format::PREFIX))
-        //     {
-        //         // if the previous token is a literal or identifier, keep it binary subtraction
-        //         if(i > 0 && (res[i-1].type == TokenType::NUMBER || res[i-1].type == TokenType::VARIABLE || res[i-1].type == TokenType::R_BRACKET))
-        //         {
-        //             continue;
-        //         }
-        //         res[i] = Token(TokenType::OPERATION, "unary-"); // change the token to a unary minus operator                
-        //         i++;
-        //     }
-        // }
+        else if(token.value == "-")
+        {
+            // check if the next token is some kind of identifier, another prefix or another subtraction/negation
+            if(i+1 < res.size() && 
+            (res[i+1].type == TokenType::NUMBER ||
+                res[i+1].type == TokenType::VARIABLE ||
+                res[i+1].type == TokenType::L_BRACKET||
+                (res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefinition::Format::PREFIX) ||
+                res[i+1].value == "-")) // ensure chains of - are caught, as ordinary subtraction doesn't count as a prefix
+            {
+                // if the previous token is a literal or identifier, keep it binary subtraction
+                if(i > 0 && (res[i-1].type == TokenType::NUMBER || res[i-1].type == TokenType::VARIABLE || res[i-1].type == TokenType::R_BRACKET))
+                {
+                    continue;
+                }
+                res[i] = Token(TokenType::OPERATION, "unary-", OpDefinition::Format::PREFIX); // change the token to a unary minus operator                
+            }
+            
+        }
     }
-    for(auto arg:res)
+    if(Config::DEBUG_MODE)
     {
-        std::cout<<arg<<", ";
+        std::cout << "POST NORMALIZATION: ";
+        for(auto arg:res)
+        {
+            std::cout<<arg<<", ";
+        }
+        std::cout<<std::endl;
     }
-    std::cout<<std::endl;
     return res;
 }
 

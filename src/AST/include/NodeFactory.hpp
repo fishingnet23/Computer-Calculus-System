@@ -1,3 +1,5 @@
+#pragma once
+#include "Config.hpp"
 #include "../include/Operations.hpp"
 
 namespace AST
@@ -20,6 +22,9 @@ public:
     }
 
     static NodePtr makeOperator(const std::string& name, const std::vector<NodePtr>& children) {
+        return std::static_pointer_cast<Node>(makeOperatorPtr(name,children));
+    }
+    static OpPtr makeOperatorPtr(const std::string& name, const std::vector<NodePtr>& children) {
         auto opDef = OpRegistry::get(name); // Assuming an operator registry exists
         if (!opDef) {
             throw std::runtime_error("Unknown operator: " + name);

@@ -29,7 +29,7 @@ public:
     std::string postfixNotation()
     {
         if(root)
-            return root->postFixNotation();
+            return root->getPostFix();
         return "EMPTY TREE";
     }
 
