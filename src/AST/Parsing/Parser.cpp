@@ -55,6 +55,7 @@ std::vector<NodePtr> Parser::parseTokens() const
         }
         else if(token.type == TokenType::OPERATION)
         {
+
             auto opDefinition = OpRegistry::get(token.value);
             if(!opDefinition)
                 throw std::runtime_error("Unknown operator! " + token.value);

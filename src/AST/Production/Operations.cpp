@@ -3,15 +3,20 @@
 
 namespace AST
 {
-    const std::map<std::string, std::unique_ptr<const OpDefinition>> OpRegistry::map = [] {
-        std::map<std::string, std::unique_ptr<const OpDefinition>> operations;
-        operations.emplace("+", std::make_unique<const Add>());
-        operations.emplace("-", std::make_unique<const Subtract>());
-        operations.emplace("unary-", std::make_unique<const Negate>());
-        operations.emplace("*", std::make_unique<const Multiply>());
-        operations.emplace("[implicit*]", std::make_unique<const Multiply>(true));
-        operations.emplace("/", std::make_unique<const Divide>());
-        operations.emplace("^", std::make_unique<const Exponentiate>());
+    const std::map<std::string, std::shared_ptr<OpDefinition>> OpRegistry::map = [] {
+        std::map<std::string, std::shared_ptr<OpDefinition>> operations;
+        operations.emplace("+", std::make_shared< Add>());
+        operations.emplace("*", std::make_shared< Multiply>());
+        operations.emplace("[implicit*]", std::make_shared< Multiply>(true));
+        operations.emplace("^", std::make_shared< Exponentiate>());
+        return operations;
+    }();
+
+    const std::map<std::string, std::shared_ptr< SyntaxFluff>> OpRegistry::fluffyMap = [] {
+        std::map<std::string, std::shared_ptr< SyntaxFluff>> operations;
+        operations.emplace("-", std::make_shared< Subtract>());
+        operations.emplace("unary-", std::make_shared< Negate>());
+        operations.emplace("/", std::make_shared< Divide>());
         return operations;
     }();
 };

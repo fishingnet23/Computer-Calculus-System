@@ -1,4 +1,5 @@
 #include "../include/NodeFactory.hpp"
+#include "Add.hpp"
 
 namespace AST
 {
@@ -11,129 +12,103 @@ namespace AST
         }
         return res;
     }
-    NodePtr Add::applySymbolicIdentities(OpPtr opNode) const
-    {
-        return opNode->shared_from_this();
-    }
     NodePtr Add::applySimplification(OpPtr opNode) const
     {
-        auto identity = applySymbolicIdentities(opNode);
-        if(!toOperator(identity))
-            return identity;
-        opNode = std::static_pointer_cast<OperatorNode>(identity);
+        auto& oldArgs = opNode->getArguments();
 
-        auto& args = opNode->getArguments();
-        IndexedSymbolDataAccumulator coeffMap(IndexedSymbolDataAccumulator::IndexMode::ByDegree);
-        
-        for(const auto& arg : args)
+        SymbolDataAccumulator coeffMap;
+        coeffMap.setConstant(0);
+        for(const auto& node: oldArgs)
         {
-            NodePtr strippedArgument;
-            if(const auto* number = arg->asNumber())
+            if(const auto& number = toNumber(node))
             {
-                coeffMap.setConstant(coeffMap.getConstant() + number->getValue());
-                continue; // not a symbol so shouldnt be accumulated
+                coeffMap.setConstant(coeffMap.getConstant()+number->getValue());
+                continue;
             }
-            else if(const auto& symbol = toSymbol(arg))
-            { // needs reworking to ensure correct degree respect, theory is that it confuses x*x with degree 1
-                double coeff = 1;
-                double degree = 1;
-                std::string identifier;
-                
-                if(const auto& op = toOperator(arg))
+            double coeff = 1;
+            if(const auto& symbol = toSymbol(node))
+            {
+                SymbolPtr final = symbol;
+                if(const auto& innerOp = toOperator(node))
                 {
-                    if(op->getName() == "*")
+                    if(innerOp->getName() == "*")
                     {
-                        if(op->getArguments().size() < 2)
-                            throw std::runtime_error("Corrupted multiplication detected!");
-                        NodePtr constant = op->getArguments()[0];
-                        const NumberNode* number = constant->asNumber();
-                        if(number)
+                        auto& innerArgs = innerOp->getArguments();
+                        // assume multiplication is not malformed and that it is already canonicalized
+                        if(const auto& coeffNode = toNumber(innerArgs[0]))
                         {
-                            coeff = number->getValue();
-                            std::vector<NodePtr> reducedArgs = reduceToSymbols(op);
-                            if(reducedArgs.size() == 1)
-                                strippedArgument = reducedArgs[0]; // if just one operand was symbolic
-                            else if(reducedArgs.empty()) // the operator was just hiding constants
-                            {
-                                double value = op->evaluate(Environment()); // safe to just evaluate with no variables
-                                coeffMap.setConstant(coeffMap.getConstant() + value);
-                                continue; // skip this as it's not a symbol, it's a hidden constant
-                            }
-                            else
-                                strippedArgument = NodeFactory::makeOperator("*", reducedArgs);
-                        }
-                        else
-                        {
-                            identifier = op->toString();
-                            strippedArgument = arg;
+                            coeff = coeffNode->getValue();
+                            final = toSymbol(innerOp->remakeWithoutArgument(0));
                         }
                     }
-                    else
-                    {
-                        identifier = op->toString();
-                        strippedArgument = arg;
-                    }
                 }
-                else
+                coeffMap.insertOrAccumulate(final->getPostFix(),final,[coeff](double& accumCoeff,double& accumDeg)
                 {
-                    identifier = symbol->getName();
-                    strippedArgument = arg;
-                }
-
-                coeffMap.insertOrAccumulate(identifier, strippedArgument, coeff, degree);
+                    accumCoeff+=coeff;
+                },coeff,1);
             }
+            
+            // unknowns are ignored, though they shouldn't exist
         }
+
+        std::vector<NodePtr> reconstructed;
+        reconstructed.reserve(coeffMap.get().size() + 1);
         
-        const auto& map = coeffMap.get();
-        args.clear();
-        // insert constant term
-        if (coeffMap.getConstant() != 0.0)
+        if(coeffMap.getConstant()!= 0)
+            reconstructed.push_back(NodeFactory::makeNumber(coeffMap.getConstant()));
+        
+        for(const auto& [name,data] :coeffMap.get())
         {
-            args.push_back(NodeFactory::makeNumber(coeffMap.getConstant()));
-        }
+            if(data.coeff == 0)
+                continue;
 
-        // rebuild nonzero args
-        for(const auto& [name, innerMap] : map)
-        {
-            for(const auto& [degree, OpData] : innerMap)
+            NodePtr nodeToAdd;
+            if(data.coeff == 1)
+                nodeToAdd = data.originalNode;
+            else
             {
-                auto coeff = OpData.uniqueValue;
-                if(coeff != 0.0)
-                {
-
-                    NodePtr termNode = OpData.originalNode->clone(); 
-                    
-                    NodePtr multiplied;
-                    if(coeff!=1)
-                        multiplied = NodeFactory::makeOperator("*",{NodeFactory::makeNumber(coeff),termNode});
-                    else
-                        multiplied = termNode;
-                    args.push_back(std::move(multiplied));
-                }
+                nodeToAdd = NodeFactory::makeOperator("*",{NodeFactory::makeNumber(data.coeff),data.originalNode});
             }
+
+            reconstructed.push_back(nodeToAdd);
         }
 
-        // node reduction checks
-        if(args.size() == 0)
-        {
-            return NodeFactory::makeNumber(0);
-        }
-        else if (args.size() == 1)
-        {
+        opNode->setArguments(reconstructed); // wash away the old structure at this node
 
-            NodePtr singleChild = std::move(args.front());
-            return singleChild;
-        }
-
-        return opNode->shared_from_this(); 
+        return localSimplification(opNode); // final collapse handling in case of a malformed addition
     }
-
     NodePtr Add::applyExpansion(OpPtr opNode) const
     {
         return opNode->shared_from_this();
     }
 
-    std::string Add::toString(const std::vector<NodePtr> & args) const
+    NodePtr Add::localSimplification(OpPtr opNode) const
+    {
+        auto& oldArgs = opNode->getArguments();
+
+        std::vector<NodePtr> newArgs;
+        newArgs.reserve(oldArgs.size());
+
+        for(const auto& node: oldArgs)
+        {
+            if(const auto& number = toNumber(node))
+            {
+                if(number->getValue() == 0)
+                    continue;
+            }
+
+            newArgs.push_back(node);
+        }
+
+        if (newArgs.empty())
+            return NodeFactory::makeNumber(0);
+        if(newArgs.size() == 1)
+            return newArgs[0]; // collapse to child
+
+        opNode->setArguments(newArgs);
+        return opNode;
+    }
+    std::string Add::toString(const std::vector<NodePtr> &args) const
     {
         std::string str = "";
         if(args.size() == 0)

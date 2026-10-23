@@ -5,14 +5,15 @@ namespace AST
 {
 class Add : public OpDefinition
 {
-protected:
-    virtual NodePtr applySymbolicIdentities(OpPtr opNode) const override;
 public:
     Add():OpDefinition({OpProperty::COMMUTATIVE,OpProperty::TRUE_ASSOCIATIVE}){}
 
     virtual double evaluate(const std::vector<double>& values) const override;
+
     virtual NodePtr applySimplification(OpPtr opNode) const override;
     virtual NodePtr applyExpansion(OpPtr opNode) const override;
+    
+    virtual NodePtr localSimplification(OpPtr opNode) const override;
 
     virtual std::string toString(const std::vector<NodePtr>& args) const override;
     virtual std::string getName() const override {return "+";}

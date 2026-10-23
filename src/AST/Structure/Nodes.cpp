@@ -1,5 +1,6 @@
 #include "Nodes.hpp"
 #include "OperatorDefinitions.hpp"
+#include "../include/NodeFactory.hpp"
 
 namespace AST
 {
@@ -108,6 +109,33 @@ namespace AST
         // to do: add clone to op because cant construct a pure virtual function
     }
 
+    NodePtr OperatorNode::remakeWithArgsFromInterval(size_t start, size_t end) const
+    {
+        std::vector<NodePtr> args;
+        args.reserve(end-start);
+
+        for(size_t i = start;i<end;i++)
+            args.push_back(arguments[i]);
+
+        auto res = NodeFactory::makeOperatorPtr(name,args);
+        return res->getDefinition()->localSimplification(res);
+    }
+
+    NodePtr OperatorNode::remakeWithoutArgument(size_t elementIndex) const
+    {
+        std::vector<NodePtr> args;
+        args.reserve(arguments.size() - 1);
+
+        for(int i=0;i<arguments.size();i++)
+        {
+            if(i==elementIndex)
+                continue;
+            args.push_back(arguments[i]);
+        }
+        auto res = NodeFactory::makeOperatorPtr(name,args);
+        return res->getDefinition()->localSimplification(res);
+    }
+
     OperatorNode::OperatorNode(const OperatorNode& other) 
         : Symbol(other), op(other.op)
     {
@@ -125,7 +153,7 @@ namespace AST
     void OperatorNode::unify()
     {
 
-        std::cout << "Pre unification: " << postFixNotation() << std::endl;
+        std::cout << "Pre unification: " << getPostFix() << std::endl;
         // unify children (during expansion/simplification, they may become disorderly again despite the bottom up approach)
         for(auto& arg : arguments)
             if(auto innerOp = toOperator(arg))
@@ -160,15 +188,15 @@ namespace AST
         {
             std::sort(arguments.begin(), arguments.end(), canonicalLess);
         }
-        std::cout << "Post unification: " << postFixNotation() << std::endl;
+        std::cout << "Post unification: " << getPostFix() << std::endl;
     }
 
     std::shared_ptr<Node> OperatorNode::simplify()
     {
-        std::cout << "Pre simplification: " << postFixNotation() << std::endl;
+        std::cout << "Pre simplification: " << getPostFix() << std::endl;
         unify();
         // simplify locally then try recursively
-        auto cleaned = op->applySimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));
+        auto cleaned = op->localSimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));
         auto cleanedOp = toOperator(cleaned);
         
         if(!cleanedOp)
@@ -190,7 +218,7 @@ namespace AST
         cleanedOp->unify();
 
         auto final = cleanedOp->getDefinition()->applySimplification(cleanedOp);
-        std::cout << "Post simplification: " << final->postFixNotation() << std::endl;
+        std::cout << "Post simplification: " << final->getPostFix() << std::endl;
         return final;
     }
 
@@ -198,11 +226,11 @@ namespace AST
 
     NodePtr OperatorNode::expand()
     {
-        std::cout << "Pre expansion: " << postFixNotation() << std::endl;
+        std::cout << "Pre expansion: " << getPostFix() << std::endl;
         unify();
 
         // perform shallow cleaning
-        auto cleaned = op->applySimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));
+        auto cleaned = op->localSimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));
         auto cleanedOp = toOperator(cleaned);
         if(!cleanedOp) // simplified into an atomic node
             return cleaned;
@@ -223,7 +251,7 @@ namespace AST
         cleanedOp->unify();
 
         auto final = cleanedOp->getDefinition()->applyExpansion(std::static_pointer_cast<OperatorNode>(cleanedOp));
-        std::cout << "Post expansion: " << final->postFixNotation() << std::endl;
+        std::cout << "Post expansion: " << final->getPostFix() << std::endl;
         return final;
     }
     std::shared_ptr<Node> OperatorNode::canonicalize()

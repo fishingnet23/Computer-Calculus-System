@@ -54,7 +54,7 @@ public:
 
     virtual double evaluate(const Environment& env) const = 0;
     virtual const std::string toString() const = 0;
-    virtual const std::string postFixNotation() const = 0;
+    virtual const std::string getPostFix() const = 0;
     virtual NodeType type() const = 0;
     virtual std::shared_ptr<Node> clone() const = 0; 
 
@@ -107,7 +107,7 @@ public:
     {
        return AST::toString(value);
     }
-    virtual const std::string postFixNotation() const override {return toString();}
+    virtual const std::string getPostFix() const override {return toString();}
     virtual bool identical(const Node* other) const override {return other->asNumber() && other->asNumber()->value == value;}
     
     virtual std::shared_ptr<Node> clone() const override {return std::make_shared<NumberNode>(value);} 
@@ -133,7 +133,7 @@ public:
     void setName(const std::string& name){this->name = name;}
 
     virtual const std::string toString() const = 0;
-    virtual const std::string postFixNotation() const override {return toString();}
+    virtual const std::string getPostFix() const override {return toString();}
     virtual bool identical(const Node* other) const override{
         const Symbol* otherSymbol = other->asSymbol();
         if(!otherSymbol)
@@ -189,6 +189,8 @@ public:
     OperatorNode(const OperatorNode& other);
 
     const std::vector<NodePtr>& getArguments() const {return arguments;}
+    std::shared_ptr<Node> remakeWithArgsFromInterval(size_t start, size_t end) const;
+    std::shared_ptr<Node> remakeWithoutArgument(size_t element) const;
     std::vector<NodePtr>& getArguments(){return arguments;}
 
     std::shared_ptr<const OpDefinition>& getDefinition(){return op;}
@@ -227,20 +229,19 @@ public:
         return std::make_shared<OperatorNode>(*this);
     }
 
-    virtual const std::string postFixNotation() const override 
+    virtual const std::string getPostFix() const override 
     {
-        std::cout << "NAME: " << name << std::endl;
-        std::cout << "ARGUMENT SIZE: " << arguments.size() << std::endl;
+
           
         std::string str = "(";
         if(arguments.size() < 1)
         {
             return str + name +")";
         }
-        str+= arguments[0]->postFixNotation();
+        str+= arguments[0]->getPostFix();
         for(size_t i=1;i<arguments.size();i++)
         {
-            str+= ", " +arguments[i]->postFixNotation();
+            str+= ", " +arguments[i]->getPostFix();
         }
         str+= ", "+ name +")";
         return str;
