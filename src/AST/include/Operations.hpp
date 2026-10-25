@@ -7,16 +7,20 @@
 #include "../Operators/Core/Add.hpp"
 #include "../Operators/Core/Multiply.hpp"
 #include "../Operators/Core/Exponentiate.hpp"
+#include "../Operators/Core/Logarithm.hpp"
+
 #include "../Operators/Trigonometry/Sin.hpp"
 #include "../Operators/Trigonometry/Cos.hpp"
-
 
 #include "../Operators/SyntaxFluff/Divide.hpp"
 #include "../Operators/SyntaxFluff/Negate.hpp"
 #include "../Operators/SyntaxFluff/Subtract.hpp"
+#include "../Operators/SyntaxFluff/NaturalLog.hpp"
 
 #include "../Operators/General/Max.hpp"
 #include "../Operators/General/Min.hpp"
+
+#include "../Operators/Calculus/Derivative.hpp"
 
 namespace AST
 {

@@ -20,26 +20,26 @@ namespace AST
         coeffMap.setConstant(1);
         for(const auto& node: oldArgs)
         {
-            if(const auto& number = toNumber(node))
+            if(const auto& number = Casting::toNumber(node))
             {
                 coeffMap.setConstant(coeffMap.getConstant()*number->getValue());
                 continue;
             }
             double degree = 1;
-            if(const auto& symbol = toSymbol(node))
+            if(const auto& symbol = Casting::toSymbol(node))
             {
                 SymbolPtr final = symbol;
-                if(const auto& innerOp = toOperator(node))
+                if(const auto& innerOp = Casting::toOperator(node))
                 {
                     auto& innerArgs = innerOp->getArguments();
                     if(innerOp->getName() == "^")
                     {    
                         // assume exponentiation is not malformed and that it is already canonicalized
-                        if(const auto& expNode = toNumber(innerArgs[1])) // check if the exponent is numeric 
+                        if(const auto& expNode = Casting::toNumber(innerArgs[1])) // check if the exponent is numeric 
                         {
                             // strip it
                             degree = expNode->getValue();
-                            final = toSymbol(innerArgs[0]);
+                            final = Casting::toSymbol(innerArgs[0]);
                         }
                     }
                     
@@ -89,7 +89,7 @@ namespace AST
         {
             std::vector<std::vector<NodePtr>> nextCombinations;
             
-            if(const auto& addOp = toOperator(arg); addOp && addOp->getName() == "+") // distribute over addition
+            if(const auto& addOp = Casting::toOperator(arg); addOp && addOp->getName() == "+") // distribute over addition
             {
                 for(const auto& existingTerms : currentCombinations)
                 {
@@ -144,7 +144,7 @@ namespace AST
 
         for(const auto& node: oldArgs)
         {
-            if(const auto& number = toNumber(node))
+            if(const auto& number = Casting::toNumber(node))
             {
                 if(number->getValue() == 0)
                     return NodeFactory::makeNumber(0);

@@ -9,7 +9,7 @@ public:
     Negate():SyntaxFluff({OpProperty::RIGHT_ASSOCIATIVE}){}
 
 
-    virtual OpPtr clean(std::vector<NodePtr>& args);
+    virtual OpPtr clean(const std::vector<NodePtr>& args);
 
     virtual std::string toString(const std::vector<NodePtr>& args) const override
     {

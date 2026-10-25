@@ -1,21 +1,21 @@
 #include "AlgebraSyntaxTree.hpp"
 namespace AST
 {
-NodePtr Tree::parseTokens(const std::vector<Token> &tokens)
+NodePtr AlgebraExpression::parseTokens(const std::vector<Token> &tokens)
 {
     Parser parser(tokens);
     return parser.buildAST();
 }
-Tree::Tree(const std::vector<Token> &tokens)
+AlgebraExpression::AlgebraExpression(const std::vector<Token> &tokens)
 {
     buildFrom(tokens);
 }
 
-Tree::Tree(const std::string &src)
+AlgebraExpression::AlgebraExpression(const std::string &src)
 {
     buildFrom(src);
 }
-void Tree::buildFrom(const std::string &src)
+void AlgebraExpression::buildFrom(const std::string &src)
 {
     Tokenizer tokenizer(src);
     auto tokens = tokenizer.tokenize();

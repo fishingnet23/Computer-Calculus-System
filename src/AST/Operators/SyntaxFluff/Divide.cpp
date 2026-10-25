@@ -2,7 +2,7 @@
 #include "Divide.hpp"
 namespace AST
 {
-OpPtr AST::Divide::clean(std::vector<NodePtr> &args)
+OpPtr AST::Divide::clean(const std::vector<NodePtr> &args)
 {
     if(args.size()!=2)
         throw std::runtime_error("Malformed division!");

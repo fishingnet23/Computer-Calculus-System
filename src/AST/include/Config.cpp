@@ -2,5 +2,5 @@
 
 namespace AST
 {
-    bool Config::DEBUG_MODE = true;
+    bool Config::DEBUG_MODE = false;
 };

@@ -4,8 +4,43 @@
 
 namespace AST
 {
-    
-    int Node::nodeRank(const std::shared_ptr<Node> &node)
+    SymbolPtr Casting::toSymbol(const NodePtr& node)
+    {
+        if (!node) return nullptr;
+        return node->asSymbol()? std::static_pointer_cast<Symbol>(node):nullptr;
+    }
+    NumberPtr Casting::toNumber(const NodePtr& node)
+    {
+        if (!node) return nullptr;
+        return node->asNumber()? std::static_pointer_cast<NumberNode>(node):nullptr;
+    }
+
+    VariablePtr Casting::toVariable(const SymbolPtr& node)
+    {
+        if (!node) return nullptr;
+        return node->asVariable()? std::static_pointer_cast<VariableNode>(node):nullptr;
+    }
+    VariablePtr Casting::toVariable(const NodePtr& node)
+    {
+        if (!node) return nullptr;
+        auto symbol = node->asSymbol();
+        return (symbol && symbol->asVariable()) 
+            ? std::static_pointer_cast<VariableNode>(node) 
+            : nullptr;
+    }
+    OpPtr Casting::Casting::toOperator(const SymbolPtr& node)
+    {
+        if (!node) return nullptr;
+        return node->asOperator()? std::static_pointer_cast<OperatorNode>(node):nullptr;
+    }
+    OpPtr Casting::Casting::toOperator(const NodePtr& node)
+    {
+        if (!node) return nullptr;
+        return node->asSymbol() && node->asSymbol()->asOperator() 
+            ? std::static_pointer_cast<OperatorNode>(node) 
+            : nullptr;
+    }
+    int Node::nodeRank(const ConstNodePtr node)
     {
         if (node->type() == NodeType::Number)
             return 0;
@@ -18,7 +53,7 @@ namespace AST
 
         return 3;
     }
-    bool Node::canonicalLess(const std::shared_ptr<Node> &a, const std::shared_ptr<Node> &b)
+    bool Node::canonicalLess(const ConstNodePtr a, const ConstNodePtr b)
     {
         int rankA = nodeRank(a);
         int rankB = nodeRank(b);
@@ -84,7 +119,7 @@ namespace AST
     }
     
 
-    bool OperatorNode::identical(const Node *other) const
+    bool OperatorNode::identical(const ConstNodePtr other) const
     {
         if(!this->sameOperator(other))
             return false;
@@ -156,7 +191,7 @@ namespace AST
         if (Config::DEBUG_MODE) std::cout << "Pre unification: " << getPostFix() << std::endl;
         // unify children (during expansion/simplification, they may become disorderly again despite the bottom up approach)
         for(auto& arg : arguments)
-            if(auto innerOp = toOperator(arg))
+            if(auto innerOp = Casting::toOperator(arg))
                 innerOp->unify();
 
 
@@ -169,8 +204,8 @@ namespace AST
             flattenedArgs.reserve(arguments.size() * 2);
             for(const auto& arg : arguments)
             {
-                auto op = toOperator(arg);
-                if(op && op->sameOperator(this))
+                auto op = Casting::toOperator(arg);
+                if(op && op->sameOperator(this->shared_from_this()))
                 {
                     OperatorNode* innerOp = arg->asSymbol()->asOperator();
                     for(const auto& innerArg : innerOp->arguments)
@@ -197,7 +232,7 @@ namespace AST
         unify();
         // simplify locally then try recursively
         auto cleaned = op->localSimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));
-        auto cleanedOp = toOperator(cleaned);
+        auto cleanedOp = Casting::toOperator(cleaned);
         
         if(!cleanedOp)
             return cleaned;
@@ -207,7 +242,7 @@ namespace AST
 
         for(auto& arg : cleanedOp->getArguments())
         {
-            if(auto innerOperator = toOperator(arg)) {
+            if(auto innerOperator = Casting::toOperator(arg)) {
                 simplifiedArgs.push_back(innerOperator->simplify());
             } else {
                 simplifiedArgs.push_back(arg);
@@ -219,13 +254,13 @@ namespace AST
     
         // second shallow cleaning, ensures compressions that can only be found after simplifying children are found
         auto postChildClean = cleanedOp->getDefinition()->localSimplification(cleanedOp);
-        auto postChildCleanOp = toOperator(postChildClean);
+        auto postChildCleanOp = Casting::toOperator(postChildClean);
         
         if(!postChildCleanOp)
             return postChildClean;
         
         auto final = postChildCleanOp->getDefinition()->applySimplification(postChildCleanOp);
-        auto finalOp = toOperator(final);
+        auto finalOp = Casting::toOperator(final);
         if(!finalOp)
             return final;
 
@@ -243,7 +278,7 @@ namespace AST
 
         // perform shallow cleaning
         auto cleaned = op->localSimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));
-        auto cleanedOp = toOperator(cleaned);
+        auto cleanedOp = Casting::toOperator(cleaned);
         if(!cleanedOp) // simplified into an atomic node
             return cleaned;
 
@@ -252,7 +287,7 @@ namespace AST
 
         for(auto& arg : cleanedOp->getArguments())
         {
-            if(auto innerOperator = toOperator(arg)) {
+            if(auto innerOperator = Casting::toOperator(arg)) {
                 auto expanded = innerOperator->expand();
                 expandedArgs.push_back(expanded);
             } else {
@@ -264,13 +299,13 @@ namespace AST
 
         // second shallow cleaning, ensures compressions that can only be found after expanding children are found
         auto postChildClean = cleanedOp->getDefinition()->localSimplification(cleanedOp);
-        auto postChildCleanOp = toOperator(postChildClean);
+        auto postChildCleanOp = Casting::toOperator(postChildClean);
         
         if(!postChildCleanOp)
             return postChildClean;
         
         auto final = postChildCleanOp->getDefinition()->applyExpansion(postChildCleanOp);
-        auto finalOp = toOperator(final);
+        auto finalOp = Casting::toOperator(final);
         if(!finalOp)
             return final;
 
@@ -283,7 +318,7 @@ namespace AST
     {
         std::shared_ptr<Node> expanded = expand(); 
         
-        auto opPtr = toOperator(expanded);
+        auto opPtr = Casting::toOperator(expanded);
         if(!opPtr)
             return expanded;
             

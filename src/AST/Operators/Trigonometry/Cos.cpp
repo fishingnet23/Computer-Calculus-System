@@ -9,7 +9,7 @@ NodePtr Cos::localSimplification(OpPtr opNode) const
     auto& args = opNode->getArguments();
     
     // If the child has collapsed to a pure literal number
-    if (auto num = toNumber(args[0]))
+    if (auto num = Casting::toNumber(args[0]))
     {
         return NodeFactory::makeNumber(evaluate({num->getValue()}));
     }
@@ -31,7 +31,7 @@ double Cos::evaluate(const std::vector<double> &values) const
 NodePtr Cos::applySimplification(OpPtr opNode) const
 {
     auto child = opNode->getArgument(0);
-    auto childOp = toOperator(child);
+    auto childOp = Casting::toOperator(child);
     
     if (!childOp) return opNode;
 
@@ -39,7 +39,7 @@ NodePtr Cos::applySimplification(OpPtr opNode) const
     if (childOp->getName() == "*")
     {
         auto coeff = childOp->getArgument(0);
-        if(auto numeric = toNumber(coeff))
+        if(auto numeric = Casting::toNumber(coeff))
             if(numeric->getValue() < 0)
             {
                 auto positiveCoeff = NodeFactory::makeNumber(-numeric->getValue());

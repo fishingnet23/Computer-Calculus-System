@@ -82,7 +82,7 @@ public:
     SyntaxFluff(const std::vector<OpProperty>& properties):SyntaxRule(properties){}
     SyntaxFluff( const SyntaxFluff& other): SyntaxRule(other){}
 
-    virtual OpPtr clean(std::vector<NodePtr>& args) = 0; // builds an Operator by applying its transformation to the arguments
+    virtual OpPtr clean(const std::vector<NodePtr>& args) = 0; // builds an Operator by applying its transformation to the arguments
 
     virtual std::string getRuleType() const override {return "Fluff";}
 };
