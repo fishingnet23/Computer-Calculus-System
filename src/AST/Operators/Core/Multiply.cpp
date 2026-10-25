@@ -3,7 +3,7 @@
 
 namespace AST
 {
-    double Multiply::evaluate(const std::vector<double>& values) const
+    double Multiply::evaluate(const std::vector<double>& values, const Environment& env) const
     {
         double res = 1;
         for(const auto& value:values)
@@ -172,7 +172,13 @@ namespace AST
 
         for(size_t i = 1;i<args.size();i++)
         {
-            str+=" * " + args[i]->toString();
+            auto prevNumber = Casting::toNumber(args[i-1]);
+            auto currNumber = Casting::toNumber(args[i]);
+            auto prevOp = Casting::toOperator(args[i-1]);
+            if(prevNumber && currNumber || prevOp)
+                str+=" * " + args[i]->toString();
+            else
+                str+= " "+args[i]->toString();
         }
 
         return str+")";

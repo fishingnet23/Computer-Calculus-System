@@ -31,7 +31,7 @@ std::string NumericLimit::toString(const std::vector<NodePtr> &args) const
     return str + ")";
 }
 
-double NumericLimit::evaluate(const std::vector<double> &values) const
+double NumericLimit::evaluate(const std::vector<double>& values, const Environment& env) const
 {
     if(values.size() < 2)
         throw std::runtime_error("Malformed "+getName() +"! Can't evaluate!");

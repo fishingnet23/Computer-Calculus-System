@@ -3,7 +3,7 @@
 
 namespace AST
 {
-    double Exponentiate::evaluate(const std::vector<double>& values) const
+    double Exponentiate::evaluate(const std::vector<double>& values, const Environment& env) const
     {
         if(values.size()!= 2)
             throw std::runtime_error("Malformed exponentiation!");
@@ -135,7 +135,7 @@ namespace AST
     }
     std::string Exponentiate::toString(const std::vector<NodePtr> &args) const
     {
-        std::string str = "(";
+        std::string str = "";
         if(args.size() == 0)
             return str;
         str += args[0]->toString();
@@ -145,6 +145,6 @@ namespace AST
             str+=" ^ " + args[i]->toString();
         }
 
-        return str+")";
+        return str+"";
     }
 }

@@ -3,7 +3,7 @@
 
 namespace AST
 {
-    double Add::evaluate(const std::vector<double>& values) const
+    double Add::evaluate(const std::vector<double>& values, const Environment& env) const
     {
         double res = 0;
         for(const auto& value:values)
@@ -110,7 +110,7 @@ namespace AST
     }
     std::string Add::toString(const std::vector<NodePtr> &args) const
     {
-        std::string str = "(";
+        std::string str = "";
         if(args.size() == 0)
             return str;
         str += args[0]->toString();
@@ -120,6 +120,6 @@ namespace AST
             str+=" + " + args[i]->toString();
         }
 
-        return str+")";
+        return str;
     }
 }

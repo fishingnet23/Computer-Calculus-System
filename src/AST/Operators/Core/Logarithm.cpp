@@ -3,7 +3,7 @@
 
 namespace AST
 {
-    double Logarithm::evaluate(const std::vector<double>& values) const
+    double Logarithm::evaluate(const std::vector<double>& values, const Environment& env) const
     {
         if(values.size()!= 2)
             throw std::runtime_error("Malformed logarithm!");

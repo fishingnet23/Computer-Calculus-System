@@ -11,7 +11,7 @@ NodePtr Sin::localSimplification(OpPtr opNode) const
     // If the child has collapsed to a pure literal number
     if (auto num = Casting::toNumber(args[0]))
     {
-        return NodeFactory::makeNumber(evaluate({num->getValue()}));
+        return NodeFactory::makeNumber(evaluate({num->getValue()},Environment()));
     }
     return opNode;
 }
@@ -21,7 +21,7 @@ std::string Sin::toString(const std::vector<NodePtr> &args) const
     return getName() + "(" + args[0]->toString() + ")";
 }
 
-double Sin::evaluate(const std::vector<double> &values) const
+double Sin::evaluate(const std::vector<double>& values, const Environment& env) const
 {
     if(values.size() != 1)
         throw std::runtime_error("Malformed sin node!");

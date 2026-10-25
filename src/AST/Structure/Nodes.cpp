@@ -49,10 +49,15 @@ namespace AST
             return 1;
 
         if (node->type() == NodeType::Operator)
-            return 2;
+            if(node->asSymbol()->getName() == "^") // treat as atomic
+                return 1;
+            else
+                return node->asSymbol()->asOperator()->getDefinition()->getPrecedence() + 2; 
+                // safe because of the enums, + 2 to ensure even precedence 0 is above atomic nodes
 
-        return 3;
+        return 9999; //fallback
     }
+
     bool Node::canonicalLess(const ConstNodePtr a, const ConstNodePtr b)
     {
         int rankA = nodeRank(a);
@@ -61,16 +66,36 @@ namespace AST
         if (rankA != rankB)
             return rankA < rankB;
 
-        const auto* varA = a->asSymbol();
-        const auto* varB = b->asSymbol();
+        // if their ranks are the same, they must be of the same type
+        
+        if (a->type() == NodeType::Number) {
+            return a->asNumber()->getValue() < b->asNumber()->getValue();
+        }
 
-        if(!varA||!varB)
-            return a->toString()<b->toString();
+        if (a->type() == NodeType::Variable) {
+            return a->asSymbol()->getName() < b->asSymbol()->getName();
+        }
 
-        if (varA->getName() != varB->getName())
-            return varA->getName() < varB->getName();
+        if (a->type() == NodeType::Operator) {
+            const auto* symbA = a->asSymbol();
+            const auto* symbB = b->asSymbol();
 
-        return varA->toString()<varB->toString(); // string comparison as absolute fallback
+            if (symbA && symbB&& symbA->getName() == "^" && symbB->getName() == "^") {
+                const auto* opA = symbA->asOperator();
+                const auto* opB = symbB->asOperator();
+
+                ConstNodePtr baseA = opA->getArgument(0);
+                ConstNodePtr baseB = opB->getArgument(0);
+                return canonicalLess(baseA,baseB);
+            }
+
+            if (symbA && symbB && symbA->getName() != symbB->getName()) {
+                return symbA->getName() < symbB->getName();
+            }
+        }
+
+        // absolute fallback
+        return a->toString() < b->toString();
     }
 
     
@@ -331,6 +356,11 @@ namespace AST
     }
     double OperatorNode::evaluate(const Environment &env) const
     {
+        std::string str = toString();
+        
+        if (const double* val = env.lookup(str))
+            return *val;
+
         std::vector<double> values = {};
         values.reserve(arguments.size());
 
@@ -338,7 +368,7 @@ namespace AST
         {
             values.push_back(arg->evaluate(env));
         }
-        double baseResult = op->evaluate(values);
+        double baseResult = op->evaluate(values,env);
         return baseResult;
     }
 

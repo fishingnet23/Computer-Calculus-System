@@ -6,9 +6,9 @@ namespace AST
 {
 
 
-double AST::Derivative::evaluate(const std::vector<double> &values) const
+double AST::Derivative::evaluate(const std::vector<double> &values, const Environment& env) const
 {
-    throw std::runtime_error("Higher order operations cannot be evaluated directly!");
+    throw std::runtime_error("Higher order operations cannot be evaluated directly, without substitution!");
 }
 
 

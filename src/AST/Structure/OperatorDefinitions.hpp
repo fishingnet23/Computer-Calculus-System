@@ -60,7 +60,9 @@ public:
     OpDefinition( const OpDefinition& other): SyntaxRule(other){}
     virtual std::shared_ptr<OpDefinition> clone() const = 0;
 
-    virtual double evaluate(const std::vector<double>& values) const = 0;
+    virtual double evaluate(const std::vector<double>& values, const Environment& env)const = 0;
+    virtual double evaluate(const std::vector<double>& values) const {return evaluate(values,Environment());}
+
     
     // generic simplification and expansion rules of the operator
     virtual NodePtr applySimplification(OpPtr opNode) const = 0;

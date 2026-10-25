@@ -39,11 +39,23 @@ struct Environment
     explicit Environment(const std::vector<std::string>& tokens);
     Environment(){};
 
-    double& operator[](const std::string& str){return map[str];}
+    double& operator[](const std::string& str) {return map[str];}
     double operator[](const std::string& str) const
     {
         auto it = map.find(str);
         return it!=map.end()? it->second: 0;    
+    }
+
+    const double* lookup(const std::string& str) const
+    {
+        auto it = map.find(str);
+        return it!=map.end()? &(it->second): nullptr;    
+    }
+
+    double* lookup(const std::string& str)
+    {
+        auto it = map.find(str);
+        return it!=map.end()? &(it->second): nullptr;    
     }
 
     void print() const
@@ -75,6 +87,7 @@ public:
 
     static int nodeRank(const ConstNodePtr node);
     static bool canonicalLess(const ConstNodePtr a, const ConstNodePtr b);
+
 
 };
 
@@ -201,11 +214,19 @@ public:
             throw std::runtime_error("Argument index out of bounds error!");
         return arguments[index];
     }
+
+    const ConstNodePtr getArgument(size_t index) const
+    {
+        if(index >= arguments.size() || index < 0)
+            throw std::runtime_error("Argument index out of bounds error!");
+        return arguments[index];
+    }
+
     NodePtr remakeWithArgsFromInterval(size_t start, size_t end) const;
     NodePtr remakeWithoutArgument(size_t element) const;
     std::vector<NodePtr>& getArguments(){return arguments;}
 
-    std::shared_ptr<const OpDefinition>& getDefinition(){return op;}
+    const std::shared_ptr<const OpDefinition>& getDefinition() const {return op;}
     void acquireArguments(const std::vector<NodePtr>& args)
     {
         this->arguments = std::move(args);

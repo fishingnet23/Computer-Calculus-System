@@ -34,48 +34,55 @@ AST::AlgebraExpression promptUserForExpression()
     return tree;
 }
 
-AST::Environment promptUserForEnvironment()
-{
 
-    
-    
+
+std::string stripWhitespace(const std::string& str) {
+    auto start = std::find_if_not(str.begin(), str.end(), [](unsigned char ch) { return std::isspace(ch); });
+    auto end = std::find_if_not(str.rbegin(), str.rend(), [](unsigned char ch) { return std::isspace(ch); }).base();
+    return (start < end) ? std::string(start, end) : "";
 }
 
 void keepEvaluating(const AST::AlgebraExpression& tree)
 {    
     std::cout << "Expression to evaluate: " << tree.toString() << std::endl;
-    std::cout << "Enter variables and values seperated by commas (or 'exit' to exit evaluator): " << std::endl;
+    std::cout << "Enter variables and values separated by '=' and ';' (or 'exit' to quit): " << std::endl;
+    
     do
     {
         std::string vars;
         std::getline(std::cin, vars);
+        
+        vars = stripWhitespace(vars);
         if(vars == "exit")
             break;
+        if(vars.empty())
+            continue;
         
         std::vector<std::string> tokens;
         std::stringstream ss(vars);
         std::string token;
 
         
-
-        // Split by the comma delimiter
-        while (std::getline(ss, token, ',')) {
-            tokens.push_back(token);
+        while (std::getline(ss, token, '=')) {
+            tokens.push_back(stripWhitespace(token));
+            
+            if (std::getline(ss, token, ';')) {
+                tokens.push_back(stripWhitespace(token));
+            }
         }
-        
-        AST::Environment env(tokens);
-        std::cout << "Parsed environment: ";
-        env.print();
+        AST::Environment env(tokens);        
         try
         {
-            std::cout << "Evaluation: " << tree.evaluate(env)<<std::endl;
+            std::cout << tree.toString() << "=> " << tree.evaluate(env) << std::endl;
         }
         catch(const std::exception& e)
         {
             std::cout << "Error when evaluating AST with the environment given: " << e.what() << std::endl;
         }
-    }while(true);
+        std::cout << "\n\n Next: ";
+    } while(true);
 }
+
 
 int promptForOption()
 {
@@ -85,6 +92,7 @@ int promptForOption()
     std::cout << "0 - Exit" << std::endl;
     std::cout << "1 - Enter a new expression" << std::endl;
     std::cout << "2 - Evaluate the current expression" << std::endl;
+    // std::cout << "3 - Find the derivative of the current expression" << std::endl;
     std::cout << "Enter your choice: ";
     int option;
 
