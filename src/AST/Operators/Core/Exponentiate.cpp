@@ -3,7 +3,7 @@
 
 namespace AST
 {
-    double Exponentiate::evaluate(const std::vector<double>& values) const
+    double Exponentiate::evaluate(const std::vector<double>& values, const Environment& env) const
     {
         if(values.size()!= 2)
             throw std::runtime_error("Malformed exponentiation!");
@@ -24,12 +24,12 @@ namespace AST
         NodePtr base = args[0];
         NodePtr exp = args[1];
 
-        if (toVariable(base) || toNumber(base))
+        if (Casting::toVariable(base) || Casting::toNumber(base))
         {
             return opNode->shared_from_this();
         }
 
-        auto expNum = toNumber(exp);
+        auto expNum = Casting::toNumber(exp);
         if (!expNum)
         {
             return opNode->shared_from_this();
@@ -39,7 +39,7 @@ namespace AST
         if (expVal <= 0.0) return opNode->shared_from_this(); 
         if (expVal == 1.0) return base;
 
-        auto baseOp = toOperator(base);
+        auto baseOp = Casting::toOperator(base);
         if (!baseOp) 
         {
             return opNode->shared_from_this();
@@ -90,8 +90,8 @@ namespace AST
         NodePtr base = args[0];
         NodePtr exp = args[1];
 
-        auto baseNum = toNumber(base);
-        auto expNum = toNumber(exp);
+        auto baseNum = Casting::toNumber(base);
+        auto expNum = Casting::toNumber(exp);
 
         if (baseNum && expNum)
         {
@@ -120,7 +120,7 @@ namespace AST
         }
 
         //(a^b)^c = a^(b*c)
-        if (auto innerOp = toOperator(base); innerOp && innerOp->getName() == "^")
+        if (auto innerOp = Casting::toOperator(base); innerOp && innerOp->getName() == "^")
         {
             auto& innerArgs = innerOp->getArguments();
             NodePtr innerBase = innerArgs[0];
@@ -135,7 +135,7 @@ namespace AST
     }
     std::string Exponentiate::toString(const std::vector<NodePtr> &args) const
     {
-        std::string str = "(";
+        std::string str = "";
         if(args.size() == 0)
             return str;
         str += args[0]->toString();
@@ -145,6 +145,6 @@ namespace AST
             str+=" ^ " + args[i]->toString();
         }
 
-        return str+")";
+        return str+"";
     }
 }

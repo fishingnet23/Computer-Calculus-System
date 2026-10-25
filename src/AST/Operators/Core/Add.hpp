@@ -8,7 +8,7 @@ class Add : public OpDefinition
 public:
     Add():OpDefinition({OpProperty::COMMUTATIVE,OpProperty::TRUE_ASSOCIATIVE}){}
 
-    virtual double evaluate(const std::vector<double>& values) const override;
+    virtual double evaluate(const std::vector<double>& values, const Environment& env) const override;
 
     virtual NodePtr applySimplification(OpPtr opNode) const override;
     virtual NodePtr applyExpansion(OpPtr opNode) const override;

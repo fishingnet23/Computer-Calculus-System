@@ -18,6 +18,13 @@ class VariableNode;
 class OperatorNode;
 class OpDefinition;
 
+using NodePtr = std::shared_ptr<Node>;
+using ConstNodePtr = std::shared_ptr<const Node>;
+using SymbolPtr = std::shared_ptr<Symbol>;
+using NumberPtr = std::shared_ptr<NumberNode>;
+using VariablePtr = std::shared_ptr<VariableNode>;
+using OpPtr = std::shared_ptr<OperatorNode>;
+
 enum class NodeType
 {
     Number,
@@ -32,11 +39,23 @@ struct Environment
     explicit Environment(const std::vector<std::string>& tokens);
     Environment(){};
 
-    double& operator[](const std::string& str){return map[str];}
+    double& operator[](const std::string& str) {return map[str];}
     double operator[](const std::string& str) const
     {
         auto it = map.find(str);
         return it!=map.end()? it->second: 0;    
+    }
+
+    const double* lookup(const std::string& str) const
+    {
+        auto it = map.find(str);
+        return it!=map.end()? &(it->second): nullptr;    
+    }
+
+    double* lookup(const std::string& str)
+    {
+        auto it = map.find(str);
+        return it!=map.end()? &(it->second): nullptr;    
     }
 
     void print() const
@@ -56,22 +75,22 @@ public:
     virtual const std::string toString() const = 0;
     virtual const std::string getPostFix() const = 0;
     virtual NodeType type() const = 0;
-    virtual std::shared_ptr<Node> clone() const = 0; 
+    virtual NodePtr clone() const = 0; 
 
     virtual Symbol* asSymbol(){return nullptr;}
     virtual const Symbol* asSymbol() const {return nullptr;}
     virtual NumberNode* asNumber(){return nullptr;}
     virtual const NumberNode* asNumber() const {return nullptr;}
 
-    virtual bool identical(const Node* other) const = 0;
-    virtual bool identical(const std::shared_ptr<Node>& other){return this->identical(other.get());};
+    virtual bool identical(const ConstNodePtr other) const = 0;
 
 
-    static int nodeRank(const std::shared_ptr<Node>& node);
-    static bool canonicalLess(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b);
+    static int nodeRank(const ConstNodePtr node);
+    static bool canonicalLess(const ConstNodePtr a, const ConstNodePtr b);
+
 
 };
-using NodePtr = std::shared_ptr<Node>;
+
 
 static std::string toString(double value);
 
@@ -108,9 +127,9 @@ public:
        return AST::toString(value);
     }
     virtual const std::string getPostFix() const override {return toString();}
-    virtual bool identical(const Node* other) const override {return other->asNumber() && other->asNumber()->value == value;}
+    virtual bool identical(const ConstNodePtr other) const override {return other->asNumber() && other->asNumber()->value == value;}
     
-    virtual std::shared_ptr<Node> clone() const override {return std::make_shared<NumberNode>(value);} 
+    virtual NodePtr clone() const override {return std::make_shared<NumberNode>(value);} 
  
 
 };
@@ -134,14 +153,14 @@ public:
 
     virtual const std::string toString() const = 0;
     virtual const std::string getPostFix() const override {return toString();}
-    virtual bool identical(const Node* other) const override{
+    virtual bool identical(const ConstNodePtr other) const override{
         const Symbol* otherSymbol = other->asSymbol();
         if(!otherSymbol)
             return false;
         return name == otherSymbol->name;
     }
 
-    virtual std::shared_ptr<Node> simplify();
+    virtual NodePtr simplify();
 
     virtual VariableNode* asVariable(){return nullptr;}
     virtual const VariableNode* asVariable()const{return nullptr;}
@@ -170,7 +189,7 @@ public:
 
     virtual NodeType type() const override {return NodeType::Variable;}
 
-    virtual std::shared_ptr<Node> clone() const override {return std::make_shared<VariableNode>(*this);} 
+    virtual NodePtr clone() const override {return std::make_shared<VariableNode>(*this);} 
 
     void setCoeff(double coeff){this->coeff=coeff;}
     void setDegree(double degree){this->degree = degree;}
@@ -195,11 +214,19 @@ public:
             throw std::runtime_error("Argument index out of bounds error!");
         return arguments[index];
     }
-    std::shared_ptr<Node> remakeWithArgsFromInterval(size_t start, size_t end) const;
-    std::shared_ptr<Node> remakeWithoutArgument(size_t element) const;
+
+    const ConstNodePtr getArgument(size_t index) const
+    {
+        if(index >= arguments.size() || index < 0)
+            throw std::runtime_error("Argument index out of bounds error!");
+        return arguments[index];
+    }
+
+    NodePtr remakeWithArgsFromInterval(size_t start, size_t end) const;
+    NodePtr remakeWithoutArgument(size_t element) const;
     std::vector<NodePtr>& getArguments(){return arguments;}
 
-    std::shared_ptr<const OpDefinition>& getDefinition(){return op;}
+    const std::shared_ptr<const OpDefinition>& getDefinition() const {return op;}
     void acquireArguments(const std::vector<NodePtr>& args)
     {
         this->arguments = std::move(args);
@@ -211,10 +238,10 @@ public:
     //canonicallize the operator's arguments for easy comparisons
     void unify();
 
-    virtual std::shared_ptr<Node> simplify() override;
-    virtual std::shared_ptr<Node> expand();
+    virtual NodePtr simplify() override;
+    virtual NodePtr expand();
 
-    std::shared_ptr<Node> canonicalize();
+    NodePtr canonicalize();
 
     virtual double evaluate(const Environment& env) const override;
     virtual const std::string toString() const override;
@@ -223,14 +250,14 @@ public:
     virtual const OperatorNode* asOperator()const override{return this;}
     
     // sameOperator(OperatorNode a,OperatorNode b) if and only if its name, coeffecient and degree are identical
-    virtual bool sameOperator(const Node* other) const 
-    {return other->asSymbol() != nullptr && other->asSymbol()->asOperator() != nullptr && other->asSymbol()->Symbol::identical(this);}
+    virtual bool sameOperator(const ConstNodePtr other) const 
+    {return Symbol::identical(other);}
     // identical(OperatorNode a,OperatorNode b) if and only if sameOperator(a,b) and all arguments are identical
-    virtual bool identical(const Node* other) const override;
+    virtual bool identical(const ConstNodePtr other) const override;
     
     virtual NodeType type() const override {return NodeType::Operator;}
     
-    virtual std::shared_ptr<Node> clone() const override
+    virtual NodePtr clone() const override
     {
         return std::make_shared<OperatorNode>(*this);
     }
@@ -254,48 +281,6 @@ public:
     }
 };
 
-using SymbolPtr = std::shared_ptr<Symbol>;
-using NumberPtr = std::shared_ptr<NumberNode>;
-using VariablePtr = std::shared_ptr<VariableNode>;
-using OpPtr = std::shared_ptr<OperatorNode>;
-
-static inline SymbolPtr toSymbol(const NodePtr& node)
-{
-    if (!node) return nullptr;
-    return node->asSymbol()? std::static_pointer_cast<Symbol>(node):nullptr;
-}
-static inline NumberPtr toNumber(const NodePtr& node)
-{
-    if (!node) return nullptr;
-    return node->asNumber()? std::static_pointer_cast<NumberNode>(node):nullptr;
-}
-
-static inline VariablePtr toVariable(const SymbolPtr& node)
-{
-    if (!node) return nullptr;
-    return node->asVariable()? std::static_pointer_cast<VariableNode>(node):nullptr;
-}
-static inline VariablePtr toVariable(const NodePtr& node)
-{
-    if (!node) return nullptr;
-    auto symbol = node->asSymbol();
-    return (symbol && symbol->asVariable()) 
-        ? std::static_pointer_cast<VariableNode>(node) 
-        : nullptr;
-}
-static inline OpPtr toOperator(const SymbolPtr& node)
-{
-    if (!node) return nullptr;
-    return node->asOperator()? std::static_pointer_cast<OperatorNode>(node):nullptr;
-}
-static inline OpPtr toOperator(const NodePtr& node)
-{
-    if (!node) return nullptr;
-    return node->asSymbol() && node->asSymbol()->asOperator() 
-        ? std::static_pointer_cast<OperatorNode>(node) 
-        : nullptr;
-}
-
 static std::string toString(double value)
 {
     std::ostringstream out;
@@ -309,6 +294,16 @@ static std::string toString(double value)
     }
     return str;
 }
+class Casting
+{
+public:
+    static SymbolPtr toSymbol(const NodePtr& node);
+    static NumberPtr toNumber(const NodePtr& node);
+    static VariablePtr toVariable(const SymbolPtr& node);
+    static VariablePtr toVariable(const NodePtr& node);
+    static OpPtr toOperator(const SymbolPtr& node);
+    static OpPtr toOperator(const NodePtr& node);
+};
 
 
 };

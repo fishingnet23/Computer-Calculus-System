@@ -8,7 +8,7 @@ class NumericLimit : public OpDefinition
 public:
     NumericLimit():OpDefinition({OpProperty::TRUE_ASSOCIATIVE, OpProperty::COMMUTATIVE}){}
 
-    virtual double evaluate(const std::vector<double>& values) const override;
+    virtual double evaluate(const std::vector<double>& values, const Environment& env) const override;
 
     virtual double evaluationFn(double n1,double n2) const = 0;
 

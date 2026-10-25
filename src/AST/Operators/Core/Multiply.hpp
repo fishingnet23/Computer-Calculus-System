@@ -10,7 +10,7 @@ public:
     Multiply():OpDefinition({OpProperty::COMMUTATIVE,OpProperty::TRUE_ASSOCIATIVE}){this->implicit = false;}
     explicit Multiply(bool implicit):OpDefinition({OpProperty::COMMUTATIVE,OpProperty::TRUE_ASSOCIATIVE}){this->implicit = implicit;}
 
-    virtual double evaluate(const std::vector<double>& values) const override;
+    virtual double evaluate(const std::vector<double>& values, const Environment& env) const override;
 
     virtual NodePtr applySimplification(OpPtr opNode) const override;
     virtual NodePtr applyExpansion(OpPtr opNode) const override;

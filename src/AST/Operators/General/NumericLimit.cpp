@@ -11,7 +11,7 @@ NodePtr NumericLimit::localSimplification(OpPtr opNode) const
     // If the children have collapsed to all numbers
     size_t numbers = 0;
     for(const auto& arg:args)
-        if( const auto& numeric = toNumber(arg))
+        if( const auto& numeric = Casting::toNumber(arg))
             numbers++;
     if(numbers == args.size())
         return NodeFactory::makeNumber(opNode->evaluate(Environment()));
@@ -31,7 +31,7 @@ std::string NumericLimit::toString(const std::vector<NodePtr> &args) const
     return str + ")";
 }
 
-double NumericLimit::evaluate(const std::vector<double> &values) const
+double NumericLimit::evaluate(const std::vector<double>& values, const Environment& env) const
 {
     if(values.size() < 2)
         throw std::runtime_error("Malformed "+getName() +"! Can't evaluate!");

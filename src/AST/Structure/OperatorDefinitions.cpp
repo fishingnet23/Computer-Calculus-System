@@ -61,7 +61,7 @@ std::vector<NodePtr> OpDefinition::reduceToSymbols(const OpPtr &op)
     args.reserve(originalArgs.size());
     for(size_t i=0;i<originalArgs.size();i++)
     {
-        if(toNumber(originalArgs[i]))
+        if(Casting::toNumber(originalArgs[i]))
             continue;
         args.push_back(originalArgs[i]);
     }

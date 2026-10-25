@@ -28,7 +28,7 @@ int main() {
     std::string expression;
     std::getline(std::cin, expression);
     std::cout <<"raw input: " << expression<<std::endl;
-    AST::Tree tree(expression,registry);
+    AST::AlgebraExpression tree(expression,registry);
     try
     {
         tree.compress();

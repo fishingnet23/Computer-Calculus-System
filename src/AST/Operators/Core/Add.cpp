@@ -3,7 +3,7 @@
 
 namespace AST
 {
-    double Add::evaluate(const std::vector<double>& values) const
+    double Add::evaluate(const std::vector<double>& values, const Environment& env) const
     {
         double res = 0;
         for(const auto& value:values)
@@ -20,25 +20,25 @@ namespace AST
         coeffMap.setConstant(0);
         for(const auto& node: oldArgs)
         {
-            if(const auto& number = toNumber(node))
+            if(const auto& number = Casting::toNumber(node))
             {
                 coeffMap.setConstant(coeffMap.getConstant()+number->getValue());
                 continue;
             }
             double coeff = 1;
-            if(const auto& symbol = toSymbol(node))
+            if(const auto& symbol = Casting::toSymbol(node))
             {
                 SymbolPtr final = symbol;
-                if(const auto& innerOp = toOperator(node))
+                if(const auto& innerOp = Casting::toOperator(node))
                 {
                     if(innerOp->getName() == "*")
                     {
                         auto& innerArgs = innerOp->getArguments();
                         // assume multiplication is not malformed and that it is already canonicalized
-                        if(const auto& coeffNode = toNumber(innerArgs[0]))
+                        if(const auto& coeffNode = Casting::toNumber(innerArgs[0]))
                         {
                             coeff = coeffNode->getValue();
-                            final = toSymbol(innerOp->remakeWithoutArgument(0));
+                            final = Casting::toSymbol(innerOp->remakeWithoutArgument(0));
                         }
                     }
                 }
@@ -91,7 +91,7 @@ namespace AST
 
         for(const auto& node: oldArgs)
         {
-            if(const auto& number = toNumber(node))
+            if(const auto& number = Casting::toNumber(node))
             {
                 if(number->getValue() == 0)
                     continue;
@@ -110,7 +110,7 @@ namespace AST
     }
     std::string Add::toString(const std::vector<NodePtr> &args) const
     {
-        std::string str = "(";
+        std::string str = "";
         if(args.size() == 0)
             return str;
         str += args[0]->toString();
@@ -120,6 +120,6 @@ namespace AST
             str+=" + " + args[i]->toString();
         }
 
-        return str+")";
+        return str;
     }
 }

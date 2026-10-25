@@ -30,11 +30,7 @@ void Parser::finalizeOperator(std::vector<NodePtr>& output, std::vector<Parser::
     }
 
     
-    OpPtr op;
-    if(syntaxRule->getRuleType() == "Operator")
-        op = NodeFactory::makeOperatorPtr(last.token.value, arguments);
-    else if(syntaxRule->getRuleType() == "Fluff") // things like division/subtraction
-        op = std::static_pointer_cast<SyntaxFluff>(syntaxRule)->clean(arguments);
+    OpPtr op = NodeFactory::makeOperatorPtr(last.token.value, arguments);
     output.push_back(op);
     operators.pop_back();
 

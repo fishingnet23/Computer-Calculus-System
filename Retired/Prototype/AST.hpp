@@ -2,15 +2,15 @@
 
 namespace AST
 {
-class Tree
+class AlgebraExpression
 {
     NodePtr root;
     NodePtr parseTokens(const std::vector<Token>& tokens, const OperationRegistry& registry);
 public:
-    Tree(NodePtr root) :root(root) {}
-    Tree() :root(nullptr) {}
-    Tree(const std::vector<Token>& tokens, const OperationRegistry& registry){root = parseTokens(tokens, registry);}
-    Tree(const std::string& src, const OperationRegistry& registry);
+    AlgebraExpression(NodePtr root) :root(root) {}
+    AlgebraExpression() :root(nullptr) {}
+    AlgebraExpression(const std::vector<Token>& tokens, const OperationRegistry& registry){root = parseTokens(tokens, registry);}
+    AlgebraExpression(const std::string& src, const OperationRegistry& registry);
 
     NodePtr getRoot() const { return root; }
     void setRoot(NodePtr newRoot) { root = newRoot;}
