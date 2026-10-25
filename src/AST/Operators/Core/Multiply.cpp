@@ -164,23 +164,44 @@ namespace AST
         return opNode;
     }
     std::string Multiply::toString(const std::vector<NodePtr> &args) const
-    {
-        std::string str = "(";
-        if(args.size() == 0)
-            return str;
-        str += args[0]->toString();
+{
+    if (args.empty()) 
+        return "";
 
-        for(size_t i = 1;i<args.size();i++)
-        {
-            auto prevNumber = Casting::toNumber(args[i-1]);
-            auto currNumber = Casting::toNumber(args[i]);
-            auto prevOp = Casting::toOperator(args[i-1]);
-            if(prevNumber && currNumber || prevOp)
-                str+=" * " + args[i]->toString();
-            else
-                str+= " "+args[i]->toString();
+    std::string str = "";
+
+    auto precedence = getPrecedence();
+    auto getWrappedString = [precedence](const NodePtr& node) {
+        auto op = Casting::toOperator(node);
+        if (op && op->getDefinition()->getPrecedence() < precedence) {
+            return "(" + node->toString() + ")";
         }
+        return node->toString();
+    };
 
-        return str+")";
+    str += getWrappedString(args[0]);
+
+    for (size_t i = 1; i < args.size(); i++)
+    {
+        auto prevNumber = Casting::toNumber(args[i-1]);
+        auto currNumber = Casting::toNumber(args[i]);
+        auto currVar    = Casting::toVariable(args[i]);
+        auto currOp     = Casting::toOperator(args[i]);
+
+        std::string currStr = getWrappedString(args[i]);
+
+        if (prevNumber && currVar) {
+            str += currStr; 
+        }
+        else if (prevNumber && currOp && currStr.front() == '(') {
+            str += currStr;
+        }
+        else {
+            str += " * " + currStr;
+        }
     }
+
+    return str;
+}
+
 }
