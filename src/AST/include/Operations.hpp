@@ -16,6 +16,8 @@
 #include "../Operators/SyntaxFluff/Negate.hpp"
 #include "../Operators/SyntaxFluff/Subtract.hpp"
 #include "../Operators/SyntaxFluff/NaturalLog.hpp"
+#include "../Operators/SyntaxFluff/exp.hpp"
+#include "../Operators/SyntaxFluff/SquareRoot.hpp"
 
 #include "../Operators/General/Max.hpp"
 #include "../Operators/General/Min.hpp"

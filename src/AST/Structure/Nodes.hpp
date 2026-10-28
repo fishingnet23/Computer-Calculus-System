@@ -15,6 +15,7 @@ class Node;
 class Symbol;
 class NumberNode;
 class VariableNode;
+class PlaceholderNode;
 class OperatorNode;
 class OpDefinition;
 
@@ -23,6 +24,8 @@ using ConstNodePtr = std::shared_ptr<const Node>;
 using SymbolPtr = std::shared_ptr<Symbol>;
 using NumberPtr = std::shared_ptr<NumberNode>;
 using VariablePtr = std::shared_ptr<VariableNode>;
+using PlaceholderPtr = std::shared_ptr<PlaceholderNode>;
+
 using OpPtr = std::shared_ptr<OperatorNode>;
 
 enum class NodeType
@@ -69,6 +72,20 @@ class Node : public std::enable_shared_from_this<Node>
 {
 public:
     
+    struct Polynomial
+    {
+        NodePtr node;
+        double degree;
+        double coeff;
+    };
+
+    struct ConstPolynomial
+    {
+        ConstNodePtr node;
+        double degree;
+        double coeff;
+    };
+
     virtual ~Node() = default;
 
     virtual double evaluate(const Environment& env) const = 0;
@@ -77,16 +94,24 @@ public:
     virtual NodeType type() const = 0;
     virtual NodePtr clone() const = 0; 
 
+    // virtual const std::string& getIdentifier() const = 0;
+
     virtual Symbol* asSymbol(){return nullptr;}
     virtual const Symbol* asSymbol() const {return nullptr;}
     virtual NumberNode* asNumber(){return nullptr;}
     virtual const NumberNode* asNumber() const {return nullptr;}
+    virtual PlaceholderNode* asPlaceholder(){return nullptr;}
+    virtual const PlaceholderNode* asPlaceholder()const{return nullptr;}
 
     virtual bool identical(const ConstNodePtr other) const = 0;
 
+    static ConstPolynomial extractMetadata(ConstNodePtr node);
 
-    static int nodeRank(const ConstNodePtr node);
-    static bool canonicalLess(const ConstNodePtr a, const ConstNodePtr b);
+    static int nodeRank(ConstNodePtr node);
+    static int compare(ConstNodePtr a,ConstNodePtr b);
+    static bool canonicalLess(ConstNodePtr a,ConstNodePtr b);
+    static bool canonicalMore(ConstNodePtr a,ConstNodePtr b);
+
 
 
 };
@@ -170,15 +195,13 @@ public:
 
 };
 
+// proper variable 
 class VariableNode: public Symbol
 {
-    // atomic variables store doubles for coefficients and degrees
-    double coeff;
-    double degree; 
 public:
-    VariableNode():coeff(1),degree(1),Symbol(){}
-    VariableNode(const std::string&name, double coeff, double degree):coeff(coeff),degree(degree),Symbol(name){}
-    VariableNode(const VariableNode& other):coeff(other.coeff),degree(other.degree),Symbol(other){}
+    VariableNode():Symbol(){}
+    explicit VariableNode(const std::string&name):Symbol(name){}
+    VariableNode(const VariableNode& other):Symbol(other){}
     
     virtual const std::string toString() const override {return name;}
     
@@ -191,10 +214,8 @@ public:
 
     virtual NodePtr clone() const override {return std::make_shared<VariableNode>(*this);} 
 
-    void setCoeff(double coeff){this->coeff=coeff;}
-    void setDegree(double degree){this->degree = degree;}
-
 };
+
 
 class OperatorNode : public Symbol
 {
@@ -239,6 +260,7 @@ public:
     void unify();
 
     virtual NodePtr simplify() override;
+    virtual NodePtr localSimplify();
     virtual NodePtr expand();
 
     NodePtr canonicalize();
@@ -249,7 +271,7 @@ public:
     virtual OperatorNode* asOperator() override{return this;}
     virtual const OperatorNode* asOperator()const override{return this;}
     
-    // sameOperator(OperatorNode a,OperatorNode b) if and only if its name, coeffecient and degree are identical
+    // sameOperator(OperatorNode a,OperatorNode b) if and only if its name is identical
     virtual bool sameOperator(const ConstNodePtr other) const 
     {return Symbol::identical(other);}
     // identical(OperatorNode a,OperatorNode b) if and only if sameOperator(a,b) and all arguments are identical

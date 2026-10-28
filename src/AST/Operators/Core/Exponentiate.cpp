@@ -11,7 +11,15 @@ namespace AST
     }
     NodePtr Exponentiate::applySimplification(OpPtr opNode) const
     {
-        // Context aware identities like with logarithms, not yet needed
+        auto expOp = Casting::toOperator(opNode->getArgument(1));
+
+        if(expOp && expOp->getName() == "log")
+        {
+            auto base = expOp->getArgument(1);
+                if(base->identical(opNode->getArgument(0)))
+                    return expOp->getArgument(0); // return the inner expression of the log
+        }
+
         return opNode->shared_from_this(); 
     }
 
@@ -138,11 +146,17 @@ namespace AST
         std::string str = "";
         if(args.size() == 0)
             return str;
-        str += args[0]->toString();
+        if(Casting::toOperator(args[0]))
+            str += "(" + args[0]->toString() + ")";
+        else
+            str += args[0]->toString();
 
         for(size_t i = 1;i<args.size();i++)
         {
-            str+=" ^ " + args[i]->toString();
+            if(Casting::toOperator(args[i]))
+                str+="^("+args[i]->toString()+")";
+            else
+                str+= "^" + args[i]->toString();
         }
 
         return str+"";

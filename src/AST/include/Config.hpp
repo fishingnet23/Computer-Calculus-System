@@ -4,7 +4,7 @@ namespace AST
 class Config
 {
 public:
-    static bool DEBUG_MODE;
+    static const bool DEBUG_MODE = false;
  
 };
 constexpr double PI = 3.14159265358979323846;

@@ -20,6 +20,7 @@ public:
     virtual Format getFormat() const override {return OpDefinition::Format::INFIX;}
     virtual size_t getPrecedence() const override {return 1;}
     virtual size_t getCanonArgumentCount() const override {return 2;}
+    virtual SyntaxRule::SortingFormat getSortingFormat() const override {return SyntaxRule::SortingFormat::DESCEND;}
     virtual std::shared_ptr<OpDefinition> clone() const override{return std::make_shared<Add>(*this);};
 
 

@@ -13,7 +13,7 @@ public:
 
     virtual std::string toString(const std::vector<NodePtr>& args) const override
     {
-        if(args.size()!=2)
+        if(args.size()!=1)
             throw std::runtime_error("Malformed ln!");
         return "ln("+ args[0]->toString() + ")";
     }

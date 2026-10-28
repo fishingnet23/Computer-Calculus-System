@@ -17,6 +17,8 @@ Token Tokenizer::extractLiteral()
         token += src[pos];
         pos++;
     }
+
+    
     return Token(TokenType::NUMBER, token);
 }
 
@@ -146,10 +148,10 @@ std::vector<Token> Tokenizer::tokenize()
         {
             // check if the next token is some kind of identifier, another prefix or another subtraction/negation
             if(i+1 < res.size() && 
-            (res[i+1].type == TokenType::NUMBER ||
+            (
                 res[i+1].type == TokenType::VARIABLE ||
                 res[i+1].type == TokenType::L_BRACKET||
-                (res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefinition::Format::PREFIX) ||
+                (res[i+1].type == TokenType::OPERATION && res[i+1].format == OpDefinition::Format::PREFIX || res[i+1].format == OpDefinition::Format::EXPLICIT_FUNCTION) ||
                 res[i+1].value == "-")) // ensure chains of - are caught, as ordinary subtraction doesn't count as a prefix
             {
                 // if the previous token is a literal or identifier, keep it binary subtraction
@@ -159,7 +161,17 @@ std::vector<Token> Tokenizer::tokenize()
                 }
                 res[i] = Token(TokenType::OPERATION, "unary-", OpDefinition::Format::PREFIX); // change the token to a unary minus operator                
             }
-            
+            // insert the negative directly into the literal
+            else if(i+1 < res.size() && res[i+1].type == TokenType::NUMBER && res[i+1].value.size() > 0 && res[i+1].value[0] != '-')
+            {
+                if(i>0 && (res[i-1].type == TokenType::NUMBER || res[i-1].type == TokenType::VARIABLE || res[i-1].type == TokenType::R_BRACKET))
+                    continue;
+
+                res[i+1].value = "-" + res[i+1].value; // insert minus
+                res.erase(res.begin() + i); // erase current token
+                i--; // force next iteration to repeat this i value, to not skip a token
+                continue;
+            }
         }
     }
     if(Config::DEBUG_MODE)

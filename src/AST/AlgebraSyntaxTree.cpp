@@ -1,4 +1,4 @@
-#include "AlgebraSyntaxTree.hpp"
+#include "../../include/AlgebraSyntaxTree.hpp"
 namespace AST
 {
 NodePtr AlgebraExpression::parseTokens(const std::vector<Token> &tokens)
@@ -14,6 +14,7 @@ AlgebraExpression::AlgebraExpression(const std::vector<Token> &tokens)
 AlgebraExpression::AlgebraExpression(const std::string &src)
 {
     buildFrom(src);
+    unify();
 }
 void AlgebraExpression::buildFrom(const std::string &src)
 {

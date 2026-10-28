@@ -1,4 +1,4 @@
-#include "Parsing/Parser.hpp"
+#include "../src/AST/Parsing/Parser.hpp"
 
 namespace AST
 {
@@ -52,7 +52,6 @@ public:
         if(!op)
             return;
             
-        // Anchor the result locally first
         NodePtr newRoot = op->simplify();
         root = std::move(newRoot);
     }
@@ -68,16 +67,36 @@ public:
         if(!op)
             return;
             
-        // Anchor the result locally first
         NodePtr newRoot = op->expand();
         root = std::move(newRoot);
     }
 
+    void unify()
+    {
+        if(!root)
+            return;
+        auto* symbol = root->asSymbol();
+        if(!symbol)
+            return;
+        auto* op = symbol->asOperator();
+        if(!op)
+            return;
+            
+        op->unify();
+        op->localSimplify();
+    }
 
     void cannonize()
     {
         expand();
         compress();
+    }
+
+    bool equals(const AlgebraExpression& other)
+    {
+        if(!root || !other.root)
+            return false;
+        return root->identical(other.root);
     }
 };
 }

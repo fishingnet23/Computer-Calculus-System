@@ -193,11 +193,11 @@ namespace AST
         if (prevNumber && currVar) {
             str += currStr; 
         }
-        else if (prevNumber && currOp && currStr.front() == '(') {
+        else if (prevNumber && currOp && (currStr.front() == '(' || currOp->getName() == "^")) {
             str += currStr;
         }
         else {
-            str += " * " + currStr;
+            str += "*" + currStr;
         }
     }
 

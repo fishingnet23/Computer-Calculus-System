@@ -26,7 +26,7 @@ std::string NumericLimit::toString(const std::vector<NodePtr> &args) const
 
     for(size_t i=1;i<args.size();i++)
     {
-        str+= ", " + args[i]->toString();
+        str+= "," + args[i]->toString();
     }
     return str + ")";
 }

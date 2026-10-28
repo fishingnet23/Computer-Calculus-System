@@ -4,6 +4,7 @@
 
 namespace AST
 {
+
     SymbolPtr Casting::toSymbol(const NodePtr& node)
     {
         if (!node) return nullptr;
@@ -40,62 +41,146 @@ namespace AST
             ? std::static_pointer_cast<OperatorNode>(node) 
             : nullptr;
     }
-    int Node::nodeRank(const ConstNodePtr node)
+
+    Node::ConstPolynomial Node::extractMetadata(ConstNodePtr node)
+    {   
+
+        if(node->type() != NodeType::Operator)
+            return {node,1.0,1.0}; // signature is {term, degree, coeff}
+        
+        const auto* op = node->asSymbol()->asOperator();
+
+        if(op->getName() == "^")
+        {   if(const auto* exp = op->getArgument(1)->asNumber())
+                return {op->getArgument(0), exp->getValue(),1};
+            else
+                return {node,1,1}; // complex exponent, like 2^x or x^(x+1)
+        }
+
+        if(op->getName() == "*")
+        {
+            const auto* coeff = op->getArgument(0)->asNumber();
+            if(!coeff) // case with no constant multiple
+                return {node,1,1};
+            if(op->getArguments().size() != 2) // if the multiplication is beyond binary, don't bother
+                return {op->remakeWithoutArgument(0), 1.0, coeff->getValue()};
+
+            auto& innerArg = op->getArgument(1);
+            const auto* innerSym = innerArg->asSymbol(); 
+            if(!innerSym) // malformed multiplication, prob two numbers
+            {
+                if(const auto* innerNum = innerArg->asNumber())
+                    return {NodeFactory::makeNumber(innerNum->getValue() * coeff->getValue()),1,1};
+                return {node,1,1};
+            }
+                
+            const auto* innerOp = innerSym->asOperator();
+
+            if(!innerOp) // handle the (coeff * x) case
+                return {op->getArgument(1), 1.0, coeff->getValue()};
+
+            if(innerOp->getName() == "^") // assume ^ is not malformed and is exactly binary
+            {
+                auto meta = extractMetadata(innerArg);
+                return {innerOp->getArgument(0), meta.degree, coeff->getValue()}; // returns <base, degree, coeff> from a node of the form coeff*(base)^degree
+            }
+
+            return {op->remakeWithoutArgument(0), 1.0, coeff->getValue()};
+            
+        }
+        return {node,1.0,1.0};
+    }
+
+    int Node::nodeRank(ConstNodePtr node)
     {
         if (node->type() == NodeType::Number)
             return 0;
-
-        if (node->type() == NodeType::Variable)
+        else if (node->type() == NodeType::Variable)
             return 1;
-
-        if (node->type() == NodeType::Operator)
-            if(node->asSymbol()->getName() == "^") // treat as atomic
-                return 1;
-            else
-                return node->asSymbol()->asOperator()->getDefinition()->getPrecedence() + 2; 
-                // safe because of the enums, + 2 to ensure even precedence 0 is above atomic nodes
-
-        return 9999; //fallback
+        else if(node->type() == NodeType::Operator)
+            return 2;
+        else
+            return 9999; //fallback
     }
 
-    bool Node::canonicalLess(const ConstNodePtr a, const ConstNodePtr b)
+    // returns a negative number if a<b, 0 if a=b, positive if a>b (In the structural sense, not nesecarily numerically)
+    int Node::compare(ConstNodePtr a, ConstNodePtr b)
     {
+        // flatten coeff*(base)^degree for easy comparison by base then degree then coeff
         int rankA = nodeRank(a);
         int rankB = nodeRank(b);
 
         if (rankA != rankB)
-            return rankA < rankB;
-
-        // if their ranks are the same, they must be of the same type
+            return rankA - rankB;
         
-        if (a->type() == NodeType::Number) {
-            return a->asNumber()->getValue() < b->asNumber()->getValue();
+        // flatten coeff*(base)^degree for easy comparison by base then degree then coeff
+        auto polyA = extractMetadata(a); 
+        auto polyB = extractMetadata(b);
+
+        // recalculate rank
+        rankA = nodeRank(polyA.node);
+        rankB = nodeRank(polyB.node);
+
+        if (rankA != rankB)
+            return rankA - rankB;
+        
+        
+        if (polyA.node->type() == NodeType::Number) {
+            // for this case, ignore coeffecient / degree since they are irrelevant
+            return polyA.node->asNumber()->getValue() - polyB.node->asNumber()->getValue();
         }
 
-        if (a->type() == NodeType::Variable) {
-            return a->asSymbol()->getName() < b->asSymbol()->getName();
+        if (polyA.node->type() == NodeType::Variable) 
+        {
+            int comp = polyA.node->asSymbol()->getName().compare(polyB.node->asSymbol()->getName());
+            if(comp != 0)
+                return comp;
+            comp = polyA.degree - polyB.degree;
+            if(comp != 0)
+                return comp;
+            
+            return polyA.coeff - polyB.coeff; // ultimate fallback, will return 0 if identical
         }
 
-        if (a->type() == NodeType::Operator) {
-            const auto* symbA = a->asSymbol();
-            const auto* symbB = b->asSymbol();
+        if(polyA.node->type() == NodeType::Operator)
+        {
+            int comp = polyA.node->asSymbol()->getName().compare(polyB.node->asSymbol()->getName());
+            if(comp != 0)
+                return comp;
+            comp = polyA.degree - polyB.degree;
+            if(comp != 0)
+                return comp;
+            comp =  polyA.coeff - polyB.coeff;
+            if(comp != 0)
+                return comp;
+            
+            const auto* opA = polyA.node->asSymbol()->asOperator();
+            const auto* opB = polyB.node->asSymbol()->asOperator();
 
-            if (symbA && symbB&& symbA->getName() == "^" && symbB->getName() == "^") {
-                const auto* opA = symbA->asOperator();
-                const auto* opB = symbB->asOperator();
-
-                ConstNodePtr baseA = opA->getArgument(0);
-                ConstNodePtr baseB = opB->getArgument(0);
-                return canonicalLess(baseA,baseB);
+            size_t minSize = std::min(opA->getArguments().size(),opB->getArguments().size());
+            for(size_t i=0;i<minSize;i++)
+            {
+                comp = compare(opA->getArgument(i),opB->getArgument(i));
+                if(comp != 0) // if they aren't equal, short circuit, otherwise keep looking
+                    return comp;
             }
+            
+            if(opA->getArguments().size() != opB->getArguments().size())
+                return opA->getArguments().size() - opB->getArguments().size(); // less arguments < more arguments
 
-            if (symbA && symbB && symbA->getName() != symbB->getName()) {
-                return symbA->getName() < symbB->getName();
-            }
+            return 0; // operators are structurally identical
+            
         }
+        return 0; // truly equal
+    }
 
-        // absolute fallback
-        return a->toString() < b->toString();
+    bool Node::canonicalLess(ConstNodePtr a, ConstNodePtr b)
+    {
+        return compare(a,b) < 0; // will return false in the case of equal, to maintain strict ordering
+    }
+    bool Node::canonicalMore(ConstNodePtr a, ConstNodePtr b)
+    {
+        return compare(a,b) > 0; // will return false in the case of equal, to maintain strict ordering
     }
 
     
@@ -132,7 +217,7 @@ namespace AST
         }
     }
 
-    std::shared_ptr<Node> Symbol::simplify()
+    NodePtr Symbol::simplify()
     {
         return this->shared_from_this();
     }
@@ -246,12 +331,20 @@ namespace AST
 
         if(commutative)
         {
-            std::sort(arguments.begin(), arguments.end(), canonicalLess);
+            auto format = op->getSortingFormat();
+
+            if(format == SyntaxRule::SortingFormat::ASCEND)
+                std::sort(arguments.begin(), arguments.end(), canonicalLess);
+            else
+                std::sort(arguments.begin(), arguments.end(), canonicalMore);
+
         }
         if(Config::DEBUG_MODE) std::cout << "Post unification: " << getPostFix() << std::endl;
     }
 
-    std::shared_ptr<Node> OperatorNode::simplify()
+    NodePtr OperatorNode::localSimplify(){return op->localSimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));}
+
+    NodePtr OperatorNode::simplify()
     {
         if (Config::DEBUG_MODE) std::cout << "Pre simplification: " << getPostFix() << std::endl;
         unify();
@@ -339,9 +432,9 @@ namespace AST
         if (Config::DEBUG_MODE) std::cout << "Post expansion: " << final->getPostFix() << std::endl;
         return final;
     }
-    std::shared_ptr<Node> OperatorNode::canonicalize()
+    NodePtr OperatorNode::canonicalize()
     {
-        std::shared_ptr<Node> expanded = expand(); 
+        NodePtr expanded = expand(); 
         
         auto opPtr = Casting::toOperator(expanded);
         if(!opPtr)

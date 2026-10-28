@@ -1,5 +1,5 @@
 #include <iostream>
-#include "AST/AlgebraSyntaxTree.hpp"
+#include "../include/AlgebraSyntaxTree.hpp"
 #include <sstream>
 
 
@@ -7,10 +7,8 @@
 // 7/3*x^5 - 11*x^4 + 1/2*x^5 + 13*x^2 - 4/5*x^3 + 9*x^4 - 22/7*x + 15*x^2 - 6*x^5 + 1/8*x^3 - 14*x + 19
 // (x^2 - x^2) + 3x^2(x^0 + 4) - 15x^2
 // 1 / 2x / 3x^2 / (1 / 4x)
-// (2x^2)^3^2 - 512x^18
 // sin(x) / cos(x) -x ^ 0 * sin(x) / cos(x)
 // x - -2x^2 - (3x^2 - -x)
-
 
 AST::AlgebraExpression promptUserForExpression()
 {

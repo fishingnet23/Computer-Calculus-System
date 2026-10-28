@@ -1,4 +1,5 @@
 #include "NodeFactory.hpp"
+#include "StructureManipulation.hpp"
 
 namespace AST{
 NodePtr NodeFactory::makeNumber(double val)
@@ -13,12 +14,7 @@ NodePtr NodeFactory::makeNumber(const std::string &name)
 
 NodePtr NodeFactory::makeVariable(const std::string &name)
 {
-    return std::make_shared<VariableNode>(name,1,1);
-}
-
-NodePtr NodeFactory::makeVariable(const std::string &name, double coeff, double degree)
-{
-    return std::make_shared<VariableNode>(name,coeff,degree);
+    return std::make_shared<VariableNode>(name);
 }
 
 NodePtr NodeFactory::makeOperator(const std::string &name, const std::vector<NodePtr> &children)
@@ -40,9 +36,40 @@ OpPtr AST::NodeFactory::makeOperatorPtr(const std::string &name, const std::vect
     else
         throw std::runtime_error("Unknown operator: " + name);
 }
-NodePtr NodeFactory::cloneNode(const NodePtr &original)
- {
-        if (!original) return nullptr;
-        return original->clone(); 
+PlaceholderPtr NodeFactory::makePlaceholder(const std::string &name, bool (*predicate)(NodePtr))
+{
+    return std::make_shared<PlaceholderNode>(name,predicate);
+}
+OpPtr NodeFactory::substitute(OpPtr treeToTraverse, const std::map<std::string, NodePtr> &map)
+{
+    for(size_t i=0;i<treeToTraverse->getArguments().size();i++)
+    {
+        auto arg = treeToTraverse->getArgument(i);
+
+        auto it = map.find(arg->toString());
+        if(it == map.end())
+        {
+            // not found, look nested
+            auto op = Casting::toOperator(arg);
+            if(op)
+            {
+                OpPtr res = substitute(op,map); // recursive descent
+                treeToTraverse->getArguments()[i] = res; // save new version
+                continue;
+            }
+            continue; // next argument
+        }
+
+        //found
+        NodePtr mappedNode = it->second;
+        treeToTraverse->getArguments()[i] = mappedNode; // replace 
     }
+    return treeToTraverse;
+}
+NodePtr NodeFactory::cloneNode(const NodePtr &original)
+{
+    if (!original)
+        return nullptr;
+    return original->clone();
+}
 }

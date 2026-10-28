@@ -1,4 +1,4 @@
-#include "../include/Operations.hpp"
+#include "Operations.hpp"
 #include <memory>
 
 namespace AST
@@ -27,6 +27,10 @@ namespace AST
         operations.emplace("unary-", std::make_shared< Negate>());
         operations.emplace("/", std::make_shared< Divide>());
         operations.emplace("ln",std::make_shared<NaturalLog>());
+        operations.emplace("exp",std::make_shared<Exp>());
+        operations.emplace("sqrt",std::make_shared<SquareRoot>());
+        // operations.emplace("root",std::make_shared<NthRoot>());
+
         return operations;
     }();
 };

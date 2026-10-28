@@ -2,9 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build Project",
+            "label": "Build Demo",
             "type": "shell",
-            "command": "g++ -std=c++17 -g $(find ${workspaceFolder}/src -name '*.cpp') -I${workspaceFolder}/src -o ${workspaceFolder}/bin/program",
+            "command": "g++ -std=c++17 -g $(find ${workspaceFolder}/src ${workspaceFolder}/demo -name '*.cpp') -I${workspaceFolder}/src -o ${workspaceFolder}/bin/demo",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -22,7 +22,31 @@
                         "args": ["-Command"]
                     }
                 },
-                "command": "g++ -std=c++17 -g (Get-ChildItem -Recurse '${workspaceFolder}/src/*.cpp' | Select-Object -ExpandProperty FullName) -I${workspaceFolder}/src -o ${workspaceFolder}/bin/program.exe"
+                "command": "g++ -std=c++17 -g (Get-ChildItem -Path '${workspaceFolder}/src/*.cpp', '${workspaceFolder}/demo/*.cpp' -Recurse | Select-Object -ExpandProperty FullName) -I${workspaceFolder}/src -o ${workspaceFolder}/bin/demo.exe"
+            }
+        },
+        {
+            "label": "Build Tests",
+            "type": "shell",
+            "command": "g++ -std=c++17 -g $(find ${workspaceFolder}/src ${workspaceFolder}/tests -name '*.cpp') -I${workspaceFolder}/src -o ${workspaceFolder}/bin/tests",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "windows": {
+                "options": {
+                    "shell": {
+                        "executable": "powershell.exe",
+                        "args": ["-Command"]
+                    }
+                },
+                "command": "g++ -std=c++17 -g (Get-ChildItem -Path '${workspaceFolder}/src/*.cpp', '${workspaceFolder}/tests/*.cpp' -Recurse | Select-Object -ExpandProperty FullName) -I${workspaceFolder}/src -o ${workspaceFolder}/bin/tests.exe"
             }
         }
     ]

@@ -11,7 +11,17 @@ namespace AST
     }
     NodePtr Logarithm::applySimplification(OpPtr opNode) const
     {
+        const auto& args = opNode->getArguments();
+        if (args.size() != 2)
+            throw std::runtime_error("Malformed logarithm!");
+        
+        auto innerOp = Casting::toOperator(opNode->getArgument(0));
 
+        if(innerOp && innerOp->getName() == "^")
+        {
+            auto base = innerOp->getArgument(0);
+            return NodeFactory::makeOperatorPtr("*",{innerOp->getArgument(1),NodeFactory::makeOperator("log",{base,opNode->getArgument(1)})})->simplify();
+        }
         
         return opNode->shared_from_this(); 
     }
@@ -43,6 +53,10 @@ namespace AST
         if (argument->identical(base)) {
             return NodeFactory::makeNumber(1);
         }
+        if (auto num = Casting::toNumber(argument)) {
+            if(num->getValue() == 1)
+                return NodeFactory::makeNumber(0);
+        }
 
 
         return opNode->shared_from_this();
@@ -61,6 +75,6 @@ namespace AST
         if(natural)
             return "ln("+args[0]->toString()+")";
         else
-            return "log(" + args[0]->toString() +", " + args[1]->toString() + ")";
+            return "log(" + args[0]->toString() +"," + args[1]->toString() + ")";
     }
 }

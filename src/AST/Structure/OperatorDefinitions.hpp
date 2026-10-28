@@ -33,6 +33,12 @@ public:
         EXPLICIT_FUNCTION = 3,
     };
 
+    enum class SortingFormat
+    {
+        ASCEND,
+        DESCEND
+    };
+
     SyntaxRule(){};
     SyntaxRule(const std::vector<OpProperty>& properties){this->properties=properties;}
     SyntaxRule( const SyntaxRule& other): properties(other.properties){}
@@ -48,6 +54,7 @@ public:
     virtual size_t getCanonArgumentCount() const = 0;
 
     virtual std::string getRuleType() const = 0;
+    virtual SortingFormat getSortingFormat() const {return SortingFormat::ASCEND;}
 };
 
 class OpDefinition : public SyntaxRule
