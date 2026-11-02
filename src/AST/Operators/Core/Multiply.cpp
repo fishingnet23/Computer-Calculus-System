@@ -1,18 +1,26 @@
-#include "../../include/NodeFactory.hpp"
 #include "Multiply.hpp"
+#include "../../include/NodeFactory.hpp"
 
 namespace AST
 {
-    double Multiply::evaluate(const std::vector<double>& values, const Environment& env) const
+    Multiply::Multiply():OpDefinition({OpProperty::COMMUTATIVE,OpProperty::TRUE_ASSOCIATIVE}){}
+
+    NumberPtr Multiply::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
     {
-        double res = 1;
-        for(const auto& value:values)
+        RationalNode r(1,1);
+
+        for(auto& arg:values)
         {
-            res *= value;
+            if(auto rational = Casting::toRational(arg))
+                r= r * (*rational);
+            else
+                throw std::runtime_error("Irrational multiplication unsupported!");
+            
         }
-        return res;
+
+        return NodeFactory::makeNumber(r.getNumerator(),r.getDenominator());
     }
-    NodePtr Multiply::applySimplification(OpPtr opNode) const
+    NodePtr Multiply::complexSimplify(OpPtr opNode) const
     {
         auto& oldArgs = opNode->getArguments();
 
@@ -74,12 +82,12 @@ namespace AST
             reconstructed.push_back(nodeToMultiply);
         }
 
-        opNode->setArguments(reconstructed); // wash away the old structure at this node
+        opNode = NodeFactory::getWithArguments(opNode,reconstructed); // wash away the old structure at this node
 
-        return localSimplification(opNode); // final collapse handling in case of a malformed multiplication / final simplification
+        return complexLocalSimplify(opNode); // final collapse handling in case of a malformed multiplication / final simplification
     }
 
-    NodePtr Multiply::applyExpansion(OpPtr opNode) const
+    NodePtr Multiply::complexExpansion(OpPtr opNode) const
     {
 
         // a(b*c) = a*b+a*c
@@ -96,7 +104,7 @@ namespace AST
                     for(const auto& addArg : addOp->getArguments())
                     {
                         auto newCombination = existingTerms;
-                        newCombination.push_back(addArg->clone());
+                        newCombination.push_back(addArg);
                         nextCombinations.push_back(newCombination);
                     }
                 }
@@ -105,7 +113,7 @@ namespace AST
             {
                 for(auto existingTerms : currentCombinations)
                 {
-                    existingTerms.push_back(arg->clone());
+                    existingTerms.push_back(arg);
                     nextCombinations.push_back(existingTerms);
                 }
             }
@@ -130,11 +138,11 @@ namespace AST
             return sumArguments[0];
         }
 
-        return NodeFactory::makeOperatorPtr("+", sumArguments);
+        return NodeFactory::makeOperator("+", sumArguments);
     }
 
 
-    NodePtr Multiply::localSimplification(OpPtr opNode) const
+    NodePtr Multiply::complexLocalSimplify(OpPtr opNode) const
     {
 
         auto& oldArgs = opNode->getArguments();
@@ -160,7 +168,7 @@ namespace AST
         if(newArgs.size() == 1)
             return newArgs[0]; // collapse to child
 
-        opNode->setArguments(newArgs);
+        opNode = NodeFactory::getWithArguments(opNode,newArgs);
         return opNode;
     }
     std::string Multiply::toString(const std::vector<NodePtr> &args) const

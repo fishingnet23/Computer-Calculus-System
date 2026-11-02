@@ -4,14 +4,17 @@
 namespace AST
 {
 
-NodePtr Sin::localSimplification(OpPtr opNode) const
+Sin::Sin():
+    OpDefinition(std::vector<OpProperty>{OpProperty::RIGHT_ASSOCIATIVE}){}
+
+NodePtr Sin::complexLocalSimplify(OpPtr opNode) const
 {
     auto& args = opNode->getArguments();
     
     // If the child has collapsed to a pure literal number
     if (auto num = Casting::toNumber(args[0]))
     {
-        return NodeFactory::makeNumber(evaluate({num->getValue()},Environment()));
+        return evaluate({num},Environment());
     }
     return opNode;
 }
@@ -21,14 +24,14 @@ std::string Sin::toString(const std::vector<NodePtr> &args) const
     return getName() + "(" + args[0]->toString() + ")";
 }
 
-double Sin::evaluate(const std::vector<double>& values, const Environment& env) const
+NumberPtr Sin::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
 {
     if(values.size() != 1)
         throw std::runtime_error("Malformed sin node!");
-    return std::sin(values[0]);
+    return NodeFactory::makeNumber(std::sin(values[0]->getValue())); // allowed to be imprecise
 }
 
-NodePtr Sin::applySimplification(OpPtr opNode) const
+NodePtr Sin::complexSimplify(OpPtr opNode) const
 {
     auto child = opNode->getArgument(0);
     auto childOp = Casting::toOperator(child);
@@ -47,8 +50,8 @@ NodePtr Sin::applySimplification(OpPtr opNode) const
                 std::vector<NodePtr> remainingArgs = childOp->getArguments();
                 remainingArgs[0] = positiveCoeff;
                 
-                auto newInternalMul = NodeFactory::makeOperatorPtr("*", remainingArgs)->simplify();
-                opNode->setArguments({newInternalMul});
+                auto newInternalMul = OperatorNode::simplify(NodeFactory::makeOperator("*", remainingArgs));
+                opNode = NodeFactory::getWithArguments(opNode,std::vector<NodePtr>{newInternalMul});
                 auto neg1 = NodeFactory::makeNumber(-1);
                 return NodeFactory::makeOperator("*", {neg1, opNode});
             }
@@ -56,7 +59,7 @@ NodePtr Sin::applySimplification(OpPtr opNode) const
     return opNode;
 }
 
-NodePtr Sin::applyExpansion(OpPtr opNode) const
+NodePtr Sin::complexExpansion(OpPtr opNode) const
 {
     return opNode->shared_from_this();
 }

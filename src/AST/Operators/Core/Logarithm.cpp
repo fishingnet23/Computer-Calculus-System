@@ -3,13 +3,31 @@
 
 namespace AST
 {
-    double Logarithm::evaluate(const std::vector<double>& values, const Environment& env) const
+    Logarithm::Logarithm():OpDefinition({OpProperty::RIGHT_ASSOCIATIVE}){}
+
+    NumberPtr Logarithm::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
     {
-        if(values.size()!= 2)
+        if (values.size() != 2)
             throw std::runtime_error("Malformed logarithm!");
-        return std::log(values[0]) / std::log(values[1]);
+        
+        auto argument = Casting::toRational(values[0]);
+        auto base = Casting::toRational(values[1]);
+        
+        if (!argument || !base)
+            throw std::runtime_error("Irrational logs not implemented!");
+
+        double argVal = static_cast<double>(argument->getNumerator()) / argument->getDenominator();
+        double baseVal = static_cast<double>(base->getNumerator()) / base->getDenominator();
+
+        if (argVal <= 0 || baseVal <= 0)
+            throw std::runtime_error("Logarithm argument and base must be greater than 0.");
+        if (baseVal == 1.0)
+            throw std::runtime_error("Logarithm base cannot be 1.");
+
+        return NodeFactory::makeNumber(std::log(argVal) / std::log(baseVal));
     }
-    NodePtr Logarithm::applySimplification(OpPtr opNode) const
+
+    NodePtr Logarithm::complexSimplify(OpPtr opNode) const
     {
         const auto& args = opNode->getArguments();
         if (args.size() != 2)
@@ -20,13 +38,13 @@ namespace AST
         if(innerOp && innerOp->getName() == "^")
         {
             auto base = innerOp->getArgument(0);
-            return NodeFactory::makeOperatorPtr("*",{innerOp->getArgument(1),NodeFactory::makeOperator("log",{base,opNode->getArgument(1)})})->simplify();
+            return OperatorNode::simplify(NodeFactory::makeOperator("*",{innerOp->getArgument(1),NodeFactory::makeOperator("log",{base,opNode->getArgument(1)})}));
         }
         
         return opNode->shared_from_this(); 
     }
 
-    NodePtr Logarithm::applyExpansion(OpPtr opNode) const
+    NodePtr Logarithm::complexExpansion(OpPtr opNode) const
     {
         auto& args = opNode->getArguments();
         if (args.size() != 2)
@@ -40,7 +58,7 @@ namespace AST
     }
 
 
-    NodePtr Logarithm::localSimplification(OpPtr opNode) const
+    NodePtr Logarithm::complexLocalSimplify(OpPtr opNode) const
     {
         auto& args = opNode->getArguments();
         if (args.size() != 2)
@@ -48,11 +66,24 @@ namespace AST
 
         NodePtr argument = args[0];
         NodePtr base = args[1];
-
+        auto innerOp = Casting::toOperator(argument);
+        
         // If the internal structures of the argument and base are identical, log_b(b) is exactly 1
         if (argument->identical(base)) {
             return NodeFactory::makeNumber(1);
         }
+
+        // if (auto bNum = Casting::toNumber(base))
+        //     if( auto aNum = Casting::toNumber(argument)) {
+        //         return evaluate({aNum,bNum},Environment());
+        //     }
+      
+        if(innerOp && innerOp->getName() == "^")
+        {
+            if(innerOp->getArgument(0)->identical(base))
+                return innerOp->getArgument(1); // log(x^b,x) = b
+        }
+
         if (auto num = Casting::toNumber(argument)) {
             if(num->getValue() == 1)
                 return NodeFactory::makeNumber(0);

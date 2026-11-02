@@ -57,30 +57,35 @@ public:
     virtual SortingFormat getSortingFormat() const {return SortingFormat::ASCEND;}
 };
 
+struct SubstitutionRule
+{
+    NodePtr prerequisteTemplate;
+    NodePtr newStructure;
+};
+
 class OpDefinition : public SyntaxRule
 {
-
 public:
 
-    OpDefinition(){};
+    OpDefinition(){}
     OpDefinition(const std::vector<OpProperty>& properties):SyntaxRule(properties){}
-    OpDefinition( const OpDefinition& other): SyntaxRule(other){}
+    OpDefinition(const OpDefinition& other):SyntaxRule(other){}
+        
     virtual std::shared_ptr<OpDefinition> clone() const = 0;
 
-    virtual double evaluate(const std::vector<double>& values, const Environment& env)const = 0;
-    virtual double evaluate(const std::vector<double>& values) const {return evaluate(values,Environment());}
-
+    virtual NumberPtr evaluate(const std::vector<NumberPtr>& values, const Environment& env)const = 0;
+    virtual NumberPtr evaluate(const std::vector<NumberPtr>& values) const {return evaluate(values,Environment());}
     
-    // generic simplification and expansion rules of the operator
-    virtual NodePtr applySimplification(OpPtr opNode) const = 0;
-    virtual NodePtr applyExpansion(OpPtr opNode) const = 0;
-
-    virtual NodePtr localSimplification(OpPtr opNode) const = 0;
-
+    // simplification and expansion rules that can't be written as a string rule
+    // things like combining like terms in addition, that are very generic
+    virtual NodePtr complexSimplify(OpPtr opNode) const = 0;
+    virtual NodePtr complexExpansion(OpPtr opNode) const = 0;
+    virtual NodePtr complexLocalSimplify(OpPtr opNode) const = 0;
 
     static std::vector<NodePtr> reduceToSymbols(const OpPtr& op);
 
     virtual std::string getRuleType() const override {return "Operator";}
+
 };
 
 class SyntaxFluff : public SyntaxRule // Represents the simplification rule of an operation like subtraction
@@ -95,6 +100,7 @@ public:
 
     virtual std::string getRuleType() const override {return "Fluff";}
 };
+
 
 class SymbolDataAccumulator {
 public:

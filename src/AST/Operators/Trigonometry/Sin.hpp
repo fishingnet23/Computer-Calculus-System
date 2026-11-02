@@ -6,14 +6,15 @@ namespace AST
 class Sin : public OpDefinition
 {
 public:
-    Sin():OpDefinition({OpProperty::RIGHT_ASSOCIATIVE}){}
+    Sin();
 
-    virtual double evaluate(const std::vector<double>& values, const Environment& env) const override;
 
-    virtual NodePtr applySimplification(OpPtr opNode) const override;
-    virtual NodePtr applyExpansion(OpPtr opNode) const override;
+    virtual NumberPtr evaluate(const std::vector<NumberPtr>& values, const Environment& env) const override;
+
+    virtual NodePtr complexSimplify(OpPtr opNode) const override;
+    virtual NodePtr complexExpansion(OpPtr opNode) const override;
     
-    virtual NodePtr localSimplification(OpPtr opNode) const override;
+    virtual NodePtr complexLocalSimplify(OpPtr opNode) const override;
 
     virtual std::string toString(const std::vector<NodePtr>& args) const override;
     virtual std::string getName() const override {return "sin";}

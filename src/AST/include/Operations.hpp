@@ -12,12 +12,14 @@
 #include "../Operators/Trigonometry/Sin.hpp"
 #include "../Operators/Trigonometry/Cos.hpp"
 
+#include "../Operators/SyntaxFluff/ImplicitMul.hpp"
 #include "../Operators/SyntaxFluff/Divide.hpp"
 #include "../Operators/SyntaxFluff/Negate.hpp"
 #include "../Operators/SyntaxFluff/Subtract.hpp"
 #include "../Operators/SyntaxFluff/NaturalLog.hpp"
 #include "../Operators/SyntaxFluff/exp.hpp"
 #include "../Operators/SyntaxFluff/SquareRoot.hpp"
+
 
 #include "../Operators/General/Max.hpp"
 #include "../Operators/General/Min.hpp"
@@ -28,12 +30,28 @@ namespace AST
 {
     class OpRegistry
     {
+
     private:
-        static const std::map<std::string, std::shared_ptr<OpDefinition>> map;
-        static const std::map<std::string, std::shared_ptr<SyntaxFluff>> fluffyMap;
+         static auto& getMutableMap() {
+            static std::map<std::string, std::shared_ptr<OpDefinition>> operations;
+            return operations;
+        }
+
+        static auto& getMutableFluffyMap() {
+            static std::map<std::string, std::shared_ptr<SyntaxFluff>> operations;
+            return operations;
+        }
+    
     public:
+        static const auto& getMap() { return getMutableMap(); }
+        static const auto& getFluffyMap() { return getMutableFluffyMap(); }
+        static void initialize();
+
         static std::shared_ptr<OpDefinition> get(const std::string& name)
         {
+            OpRegistry::initialize(); 
+
+            auto& map = getMap();
             auto it = map.find(name);
             if (it != map.end()) {
                 return it->second;
@@ -43,6 +61,9 @@ namespace AST
 
         static std::shared_ptr<SyntaxFluff> getFluffDefinition(const std::string& name)
         {
+            OpRegistry::initialize(); 
+
+            auto& fluffyMap = getFluffyMap();
             auto it = fluffyMap.find(name);
             if (it != fluffyMap.end()) {
                 return it->second;
@@ -52,6 +73,8 @@ namespace AST
 
         static std::shared_ptr<SyntaxRule> getRule(const std::string& name)
         {
+            OpRegistry::initialize(); 
+
             if(auto op = get(name))
                 return op;
             else if(auto fluff = getFluffDefinition(name))
@@ -62,6 +85,8 @@ namespace AST
 
         static OpDefinition::Format getOperationFormat(const std::string& name)
         {
+            OpRegistry::initialize(); 
+
             auto op = getRule(name);
             if(!op)
                 return OpDefinition::Format::NONE;

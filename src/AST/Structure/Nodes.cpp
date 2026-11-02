@@ -5,93 +5,105 @@
 namespace AST
 {
 
-    SymbolPtr Casting::toSymbol(const NodePtr& node)
+    SymbolPtr Casting::toSymbol(const NodePtr node)
     {
         if (!node) return nullptr;
-        return node->asSymbol()? std::static_pointer_cast<Symbol>(node):nullptr;
+        return node->asSymbol()? std::static_pointer_cast<const Symbol>(node):nullptr;
     }
-    NumberPtr Casting::toNumber(const NodePtr& node)
+    NumberPtr Casting::toNumber(const NodePtr node)
     {
         if (!node) return nullptr;
-        return node->asNumber()? std::static_pointer_cast<NumberNode>(node):nullptr;
+        return node->asNumber()? std::static_pointer_cast<const NumberNode>(node):nullptr;
     }
 
-    VariablePtr Casting::toVariable(const SymbolPtr& node)
+    RationalPtr Casting::toRational(const NodePtr node)
     {
         if (!node) return nullptr;
-        return node->asVariable()? std::static_pointer_cast<VariableNode>(node):nullptr;
+        return node->asNumber()? node->asNumber()->asRational()? std::static_pointer_cast<const RationalNode>(node):nullptr:nullptr;
     }
-    VariablePtr Casting::toVariable(const NodePtr& node)
+
+    RationalPtr Casting::toRational(const NumberPtr node)
+    {
+        if (!node) return nullptr;
+        return node->asRational()? std::static_pointer_cast<const RationalNode>(node):nullptr;
+    }
+
+    VariablePtr Casting::toVariable(const SymbolPtr node)
+    {
+        if (!node) return nullptr;
+        return node->asVariable()? std::static_pointer_cast<const VariableNode>(node):nullptr;
+    }
+    VariablePtr Casting::toVariable(const NodePtr node)
     {
         if (!node) return nullptr;
         auto symbol = node->asSymbol();
         return (symbol && symbol->asVariable()) 
-            ? std::static_pointer_cast<VariableNode>(node) 
+            ? std::static_pointer_cast<const VariableNode>(node) 
             : nullptr;
     }
-    OpPtr Casting::Casting::toOperator(const SymbolPtr& node)
+    OpPtr Casting::Casting::toOperator(const SymbolPtr node)
     {
         if (!node) return nullptr;
-        return node->asOperator()? std::static_pointer_cast<OperatorNode>(node):nullptr;
+        return node->asOperator()? std::static_pointer_cast<const OperatorNode>(node):nullptr;
     }
-    OpPtr Casting::Casting::toOperator(const NodePtr& node)
+    OpPtr Casting::Casting::toOperator(const NodePtr node)
     {
         if (!node) return nullptr;
         return node->asSymbol() && node->asSymbol()->asOperator() 
-            ? std::static_pointer_cast<OperatorNode>(node) 
+            ? std::static_pointer_cast<const OperatorNode>(node) 
             : nullptr;
     }
 
-    Node::ConstPolynomial Node::extractMetadata(ConstNodePtr node)
+    Node::ConstPolynomial Node::extractMetadata(NodePtr node)
     {   
-
+        auto one = NodeFactory::makeNumber(1);
         if(node->type() != NodeType::Operator)
-            return {node,1.0,1.0}; // signature is {term, degree, coeff}
+            return {node,one,one}; // signature is {term, degree, coeff}
         
         const auto* op = node->asSymbol()->asOperator();
 
         if(op->getName() == "^")
-        {   if(const auto* exp = op->getArgument(1)->asNumber())
-                return {op->getArgument(0), exp->getValue(),1};
+        {   if(auto exp = Casting::toNumber(op->getArgument(1)))
+                return {op->getArgument(0), exp,one};
             else
-                return {node,1,1}; // complex exponent, like 2^x or x^(x+1)
+                return {node,one,one}; // complex exponent, like 2^x or x^(x+1)
         }
 
         if(op->getName() == "*")
         {
-            const auto* coeff = op->getArgument(0)->asNumber();
+            auto coeff = Casting::toNumber(op->getArgument(0));
             if(!coeff) // case with no constant multiple
-                return {node,1,1};
+                return {node,one,one};
             if(op->getArguments().size() != 2) // if the multiplication is beyond binary, don't bother
-                return {op->remakeWithoutArgument(0), 1.0, coeff->getValue()};
+                return {op->remakeWithoutArgument(0), one, coeff};
 
             auto& innerArg = op->getArgument(1);
             const auto* innerSym = innerArg->asSymbol(); 
             if(!innerSym) // malformed multiplication, prob two numbers
             {
-                if(const auto* innerNum = innerArg->asNumber())
-                    return {NodeFactory::makeNumber(innerNum->getValue() * coeff->getValue()),1,1};
-                return {node,1,1};
+                if(auto innerNum = Casting::toNumber(innerArg))
+                    return {NodeFactory::makeNumber(innerNum->getValue() * coeff->getValue()),one,one};
+                return {node,one,one};
             }
                 
             const auto* innerOp = innerSym->asOperator();
 
             if(!innerOp) // handle the (coeff * x) case
-                return {op->getArgument(1), 1.0, coeff->getValue()};
+                return {op->getArgument(1), one, coeff};
 
             if(innerOp->getName() == "^") // assume ^ is not malformed and is exactly binary
             {
                 auto meta = extractMetadata(innerArg);
-                return {innerOp->getArgument(0), meta.degree, coeff->getValue()}; // returns <base, degree, coeff> from a node of the form coeff*(base)^degree
+                return {innerOp->getArgument(0), meta.degree, coeff}; // returns <base, degree, coeff> from a node of the form coeff*(base)^degree
             }
 
-            return {op->remakeWithoutArgument(0), 1.0, coeff->getValue()};
+            return {op->remakeWithoutArgument(0), one, coeff};
             
         }
-        return {node,1.0,1.0};
+        return {node,one,one};
     }
 
-    int Node::nodeRank(ConstNodePtr node)
+    int Node::nodeRank(NodePtr node)
     {
         if (node->type() == NodeType::Number)
             return 0;
@@ -104,7 +116,7 @@ namespace AST
     }
 
     // returns a negative number if a<b, 0 if a=b, positive if a>b (In the structural sense, not nesecarily numerically)
-    int Node::compare(ConstNodePtr a, ConstNodePtr b)
+    int Node::compare(NodePtr a, NodePtr b)
     {
         // flatten coeff*(base)^degree for easy comparison by base then degree then coeff
         int rankA = nodeRank(a);
@@ -135,11 +147,11 @@ namespace AST
             int comp = polyA.node->asSymbol()->getName().compare(polyB.node->asSymbol()->getName());
             if(comp != 0)
                 return comp;
-            comp = polyA.degree - polyB.degree;
+            comp = polyA.degree->getValue() - polyB.degree->getValue();
             if(comp != 0)
                 return comp;
             
-            return polyA.coeff - polyB.coeff; // ultimate fallback, will return 0 if identical
+            return polyA.coeff->getValue() - polyB.coeff->getValue(); // ultimate fallback, will return 0 if identical
         }
 
         if(polyA.node->type() == NodeType::Operator)
@@ -147,10 +159,10 @@ namespace AST
             int comp = polyA.node->asSymbol()->getName().compare(polyB.node->asSymbol()->getName());
             if(comp != 0)
                 return comp;
-            comp = polyA.degree - polyB.degree;
+            comp = polyA.degree->getValue() - polyB.degree->getValue();
             if(comp != 0)
                 return comp;
-            comp =  polyA.coeff - polyB.coeff;
+            comp =  polyA.coeff->getValue() - polyB.coeff->getValue();
             if(comp != 0)
                 return comp;
             
@@ -174,11 +186,11 @@ namespace AST
         return 0; // truly equal
     }
 
-    bool Node::canonicalLess(ConstNodePtr a, ConstNodePtr b)
+    bool Node::canonicalLess(NodePtr a, NodePtr b)
     {
         return compare(a,b) < 0; // will return false in the case of equal, to maintain strict ordering
     }
-    bool Node::canonicalMore(ConstNodePtr a, ConstNodePtr b)
+    bool Node::canonicalMore(NodePtr a, NodePtr b)
     {
         return compare(a,b) > 0; // will return false in the case of equal, to maintain strict ordering
     }
@@ -217,19 +229,34 @@ namespace AST
         }
     }
 
-    NodePtr Symbol::simplify()
+    const std::string RationalNode::toString() const
     {
-        return this->shared_from_this();
+        if(denominator == 0)
+            return "undefined";
+        if(denominator == 1)
+            return AST::toString(numerator);
+        return AST::toString(numerator) + "/" + AST::toString(denominator);
     }
 
-    double VariableNode::evaluate(const Environment &env) const
+    bool RationalNode::identical(const NodePtr other) const
+    {
+        auto rat = Casting::toRational(other);
+        if(!rat)
+            return false; // for now
+        double thisVal = static_cast<double>(numerator) / static_cast<double>(denominator);
+        double otherVal = static_cast<double>(rat->numerator) / static_cast<double>(rat->denominator);
+
+        return std::fabs(thisVal - otherVal) < Config::EPSILON;
+    }
+
+    NumberPtr VariableNode::evaluate(const Environment &env) const
     {
         double value = env[this->getName()];
-        return value;
+        return NodeFactory::makeNumber(value);
     }
     
 
-    bool OperatorNode::identical(const ConstNodePtr other) const
+    bool OperatorNode::identical(const NodePtr other) const
     {
         if(!this->sameOperator(other))
             return false;
@@ -248,11 +275,6 @@ namespace AST
     OperatorNode::OperatorNode(const std::vector<NodePtr> &args, const std::shared_ptr<const OpDefinition> &op)
         : Symbol(op ? op->getName() : "OP"), op(op),arguments(args){}
 
-    OperatorNode::OperatorNode(const std::vector<NodePtr>& args, const std::shared_ptr<const OpDefinition>& op, double coeff, double degree)
-        : Symbol(op ? op->getName() : "OP"), op(op) ,arguments(args)
-    {
-        // to do: add clone to op because cant construct a pure virtual function
-    }
 
     NodePtr OperatorNode::remakeWithArgsFromInterval(size_t start, size_t end) const
     {
@@ -262,8 +284,8 @@ namespace AST
         for(size_t i = start;i<end;i++)
             args.push_back(arguments[i]);
 
-        auto res = NodeFactory::makeOperatorPtr(name,args);
-        return res->getDefinition()->localSimplification(res);
+        auto res = NodeFactory::makeOperator(name,args);
+        return res->getDefinition()->complexLocalSimplify(res);
     }
 
     NodePtr OperatorNode::remakeWithoutArgument(size_t elementIndex) const
@@ -277,47 +299,44 @@ namespace AST
                 continue;
             args.push_back(arguments[i]);
         }
-        auto res = NodeFactory::makeOperatorPtr(name,args);
-        return res->getDefinition()->localSimplification(res);
+        auto res = NodeFactory::makeOperator(name,args);
+        return res->getDefinition()->complexLocalSimplify(res);
     }
 
     OperatorNode::OperatorNode(const OperatorNode& other) 
-        : Symbol(other), op(other.op)
-    {
-        arguments.reserve(other.arguments.size());
-        for(const auto& arg : other.arguments) {
-            if(arg) {
-                arguments.push_back(arg->clone());
-            } else {
-                arguments.push_back(nullptr);
-            }
-        }
-    }
+        : Symbol(other), op(other.op) ,arguments(other.arguments){}
     // method that applies properties of the operator to streamline its arguments
     // for example, sorts the arguments of commutative operators
-    void OperatorNode::unify()
+    OpPtr OperatorNode::unify(OpPtr opToSimplify)
     {
 
-        if (Config::DEBUG_MODE) std::cout << "Pre unification: " << getPostFix() << std::endl;
+        if (Config::DEBUG_MODE) std::cout << "Pre unification: " << opToSimplify->getPostFix() << std::endl;
         // unify children (during expansion/simplification, they may become disorderly again despite the bottom up approach)
-        for(auto& arg : arguments)
+
+        std::vector<NodePtr> unifiedArgs;
+        unifiedArgs.reserve(opToSimplify->getArguments().size());
+        for(auto& arg : opToSimplify->getArguments())
             if(auto innerOp = Casting::toOperator(arg))
-                innerOp->unify();
+                unifiedArgs.push_back(unify(innerOp));
+            else
+                unifiedArgs.push_back(arg);
 
+        auto unified = NodeFactory::getWithArguments(opToSimplify,unifiedArgs);
 
-        bool associative = op->hasProperty(OpProperty::TRUE_ASSOCIATIVE);
-        bool commutative = op->hasProperty(OpProperty::COMMUTATIVE);
+        bool associative = opToSimplify->getDefinition()->hasProperty(OpProperty::TRUE_ASSOCIATIVE);
+        bool commutative = opToSimplify->getDefinition()->hasProperty(OpProperty::COMMUTATIVE);
+
 
         if(associative)
         {
             std::vector<NodePtr> flattenedArgs = {};
-            flattenedArgs.reserve(arguments.size() * 2);
-            for(const auto& arg : arguments)
+            flattenedArgs.reserve(unifiedArgs.size() * 2);
+            for(const auto& arg : unifiedArgs)
             {
                 auto op = Casting::toOperator(arg);
-                if(op && op->sameOperator(this->shared_from_this()))
+                if(op && op->sameOperator(opToSimplify))
                 {
-                    OperatorNode* innerOp = arg->asSymbol()->asOperator();
+                    const OperatorNode* innerOp = arg->asSymbol()->asOperator();
                     for(const auto& innerArg : innerOp->arguments)
                     {
                         flattenedArgs.push_back(innerArg);
@@ -326,143 +345,153 @@ namespace AST
                 else
                     flattenedArgs.push_back(arg);
             }
-            arguments = std::move(flattenedArgs);
+            opToSimplify = NodeFactory::getWithArguments(unified,flattenedArgs);
         }
 
         if(commutative)
         {
-            auto format = op->getSortingFormat();
-
+            auto format = opToSimplify->getDefinition()->getSortingFormat();
+            std::vector<NodePtr> sortedArgs = opToSimplify->getArguments(); // non reference
             if(format == SyntaxRule::SortingFormat::ASCEND)
-                std::sort(arguments.begin(), arguments.end(), canonicalLess);
+                std::sort(sortedArgs.begin(), sortedArgs.end(), canonicalLess);
             else
-                std::sort(arguments.begin(), arguments.end(), canonicalMore);
-
+                std::sort(sortedArgs.begin(), sortedArgs.end(), canonicalMore);
+            opToSimplify = NodeFactory::getWithArguments(opToSimplify,sortedArgs);
         }
-        if(Config::DEBUG_MODE) std::cout << "Post unification: " << getPostFix() << std::endl;
+        if(Config::DEBUG_MODE) std::cout << "Post unification: " << opToSimplify->getPostFix() << std::endl;
+
+        return opToSimplify;
     }
 
-    NodePtr OperatorNode::localSimplify(){return op->localSimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));}
-
-    NodePtr OperatorNode::simplify()
+    NodePtr OperatorNode::localSimplify(OpPtr opToSimplify)
     {
-        if (Config::DEBUG_MODE) std::cout << "Pre simplification: " << getPostFix() << std::endl;
-        unify();
+        return opToSimplify->getDefinition()->complexLocalSimplify(opToSimplify);
+    }
+
+    NodePtr OperatorNode::simplify(OpPtr opToSimplify)
+    {
+        if (Config::DEBUG_MODE) std::cout << "Pre simplification: " << opToSimplify->getPostFix() << std::endl;
+        opToSimplify = unify(opToSimplify);
         // simplify locally then try recursively
-        auto cleaned = op->localSimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));
-        auto cleanedOp = Casting::toOperator(cleaned);
+        auto cleaned = localSimplify(opToSimplify);
+        opToSimplify = Casting::toOperator(cleaned);
         
-        if(!cleanedOp)
+        if(!opToSimplify)
             return cleaned;
 
         std::vector<NodePtr> simplifiedArgs;
-        simplifiedArgs.reserve(cleanedOp->getArguments().size());
+        simplifiedArgs.reserve(opToSimplify->getArguments().size());
 
-        for(auto& arg : cleanedOp->getArguments())
+        for(auto& arg : opToSimplify->getArguments())
         {
             if(auto innerOperator = Casting::toOperator(arg)) {
-                simplifiedArgs.push_back(innerOperator->simplify());
+                simplifiedArgs.push_back(simplify(innerOperator));
             } else {
                 simplifiedArgs.push_back(arg);
             }
         }
         
-        cleanedOp->setArguments(simplifiedArgs);
-        cleanedOp->unify();
+        opToSimplify = NodeFactory::getWithArguments(opToSimplify,simplifiedArgs);
+        opToSimplify = unify(opToSimplify);
     
         // second shallow cleaning, ensures compressions that can only be found after simplifying children are found
-        auto postChildClean = cleanedOp->getDefinition()->localSimplification(cleanedOp);
-        auto postChildCleanOp = Casting::toOperator(postChildClean);
+        auto postChildClean = opToSimplify->localSimplify(opToSimplify);
+        opToSimplify = Casting::toOperator(postChildClean);
         
-        if(!postChildCleanOp)
+        if(!opToSimplify)
             return postChildClean;
-        
-        auto final = postChildCleanOp->getDefinition()->applySimplification(postChildCleanOp);
-        auto finalOp = Casting::toOperator(final);
-        if(!finalOp)
-            return final;
 
-       finalOp->unify(); // final unification
+        auto final = opToSimplify->getDefinition()->complexSimplify(opToSimplify);
+        opToSimplify = Casting::toOperator(final);
+        if(!opToSimplify)
+            return final;
+    
+       opToSimplify = unify(opToSimplify); // final unification
+
         if (Config::DEBUG_MODE) std::cout << "Post simplification: " << final->getPostFix() << std::endl;
-        return final;
+        return opToSimplify;
     }
 
 
 
-    NodePtr OperatorNode::expand()
+    NodePtr OperatorNode::expand(OpPtr opToExpand)
     {
-        if (Config::DEBUG_MODE) std::cout << "Pre expansion: " << getPostFix() << std::endl;
-        unify();
-
-        // perform shallow cleaning
-        auto cleaned = op->localSimplification(std::static_pointer_cast<OperatorNode>(this->shared_from_this()));
-        auto cleanedOp = Casting::toOperator(cleaned);
-        if(!cleanedOp) // simplified into an atomic node
+        if (Config::DEBUG_MODE) std::cout << "Pre expansion: " << opToExpand->getPostFix() << std::endl;
+        opToExpand = unify(opToExpand);
+        // simplify locally then try recursively
+        auto cleaned = localSimplify(opToExpand);
+        opToExpand = Casting::toOperator(cleaned);
+        
+        if(!opToExpand)
             return cleaned;
 
-        std::vector<NodePtr> expandedArgs;
-        expandedArgs.reserve(cleanedOp->arguments.size());
+        std::vector<NodePtr> simplifiedArgs;
+        simplifiedArgs.reserve(opToExpand->getArguments().size());
 
-        for(auto& arg : cleanedOp->getArguments())
+        for(auto& arg : opToExpand->getArguments())
         {
             if(auto innerOperator = Casting::toOperator(arg)) {
-                auto expanded = innerOperator->expand();
-                expandedArgs.push_back(expanded);
+                simplifiedArgs.push_back(expand(innerOperator));
             } else {
-                expandedArgs.push_back(arg);
+                simplifiedArgs.push_back(arg);
             }
         }
-        cleanedOp->acquireArguments(expandedArgs);
-        cleanedOp->unify();
-
+        
+        opToExpand = NodeFactory::getWithArguments(opToExpand,simplifiedArgs);
+        opToExpand = unify(opToExpand);
+    
         // second shallow cleaning, ensures compressions that can only be found after expanding children are found
-        auto postChildClean = cleanedOp->getDefinition()->localSimplification(cleanedOp);
-        auto postChildCleanOp = Casting::toOperator(postChildClean);
+        auto postChildClean = opToExpand->getDefinition()->complexLocalSimplify(opToExpand);
+        opToExpand = Casting::toOperator(postChildClean);
         
-        if(!postChildCleanOp)
+        if(!opToExpand)
             return postChildClean;
-        
-        auto final = postChildCleanOp->getDefinition()->applyExpansion(postChildCleanOp);
-        auto finalOp = Casting::toOperator(final);
-        if(!finalOp)
+
+        auto final = opToExpand->getDefinition()->complexExpansion(opToExpand);
+        opToExpand = Casting::toOperator(final);
+        if(!opToExpand)
             return final;
 
-       finalOp->unify(); // final unification
+       opToExpand = unify(opToExpand); // final unification
 
         if (Config::DEBUG_MODE) std::cout << "Post expansion: " << final->getPostFix() << std::endl;
-        return final;
+        return opToExpand;
     }
-    NodePtr OperatorNode::canonicalize()
+    NodePtr OperatorNode::canonicalize(OpPtr opToSimplify)
     {
-        NodePtr expanded = expand(); 
+        NodePtr expanded = expand(opToSimplify); 
         
-        auto opPtr = Casting::toOperator(expanded);
-        if(!opPtr)
+        opToSimplify = Casting::toOperator(expanded);
+        if(!opToSimplify)
             return expanded;
             
-        return opPtr->simplify(); 
+        return simplify(opToSimplify); 
     }
 
     const std::string OperatorNode::toString() const
     {
         return op->toString(arguments);
     }
-    double OperatorNode::evaluate(const Environment &env) const
+    NumberPtr OperatorNode::evaluate(const Environment &env) const
     {
         std::string str = toString();
         
         if (const double* val = env.lookup(str))
-            return *val;
+            return NodeFactory::makeNumber(*val);
 
-        std::vector<double> values = {};
+        std::vector<NumberPtr> values = {};
         values.reserve(arguments.size());
 
         for(const auto& arg:arguments)
         {
-            values.push_back(arg->evaluate(env));
+            if(auto symb = Casting::toSymbol(arg))
+                values.push_back(symb->evaluate(env));
+            else if(auto num = Casting::toNumber(arg))
+                values.push_back(num);
         }
-        double baseResult = op->evaluate(values,env);
-        return baseResult;
+
+        return op->evaluate(values,env);
     }
+
 
 };

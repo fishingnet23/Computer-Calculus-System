@@ -5,7 +5,11 @@ namespace AST
 {
 
 Parser::Parser(const std::vector<Token>& tokens):tokens(tokens){}
-
+AST::Parser::Parser(const std::string &src)
+{
+    Tokenizer tok(src);
+    tokens = tok.tokenize();
+}
 void Parser::finalizeOperator(std::vector<NodePtr>& output, std::vector<Parser::opStackData>& operators)
 {
     auto& last = operators.back();
@@ -30,7 +34,7 @@ void Parser::finalizeOperator(std::vector<NodePtr>& output, std::vector<Parser::
     }
 
     
-    OpPtr op = NodeFactory::makeOperatorPtr(last.token.value, arguments);
+    OpPtr op = NodeFactory::makeOperator(last.token.value, arguments);
     output.push_back(op);
     operators.pop_back();
 
@@ -48,7 +52,7 @@ std::vector<NodePtr> Parser::parseTokens() const
     {
         if(token.type == TokenType::NUMBER)
         {
-            output.push_back(NodeFactory::makeNumber(token.value));
+            output.push_back(NodeFactory::makeNumber(std::stod(token.value)));
         }    
         else if(token.type == TokenType::VARIABLE)
         {
@@ -174,4 +178,5 @@ NodePtr Parser::buildAST() const
         throw std::runtime_error("Malformed Syntax Tree! Operations and arguments were entered too many, too little or wrongly. Ensure correct math syntax!");
     return finalAST[0];
 }
+
 };

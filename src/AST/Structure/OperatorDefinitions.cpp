@@ -1,6 +1,6 @@
 #include "OperatorDefinitions.hpp"
 #include "../include/NodeFactory.hpp"
-
+#include "../Parsing/Parser.hpp"
 namespace AST
 {
 
@@ -67,4 +67,5 @@ std::vector<NodePtr> OpDefinition::reduceToSymbols(const OpPtr &op)
     }
     return args;
 }
+
 }

@@ -7,6 +7,6 @@ OpPtr AST::Exp::clean(const std::vector<NodePtr> &args)
 {
     if(args.size()!=1)
         throw std::runtime_error("Malformed exp!");
-    return NodeFactory::makeOperatorPtr("^",{NodeFactory::makeNumber(E),args[0]});
+    return NodeFactory::makeOperator("^",{NodeFactory::makeNumber(E),args[0]});
 }
 }

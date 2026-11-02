@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include "../include/NodeFactory.hpp"
+#include "../include/Operations.hpp"
 #include <limits>
 #include <iostream>
 

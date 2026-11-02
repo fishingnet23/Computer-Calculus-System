@@ -3,16 +3,23 @@
 
 namespace AST
 {
-    double Add::evaluate(const std::vector<double>& values, const Environment& env) const
+    Add::Add():OpDefinition({OpProperty::COMMUTATIVE,OpProperty::TRUE_ASSOCIATIVE}){}
+
+    NumberPtr Add::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
     {
-        double res = 0;
-        for(const auto& value:values)
+        RationalNode r(0,1);
+
+        for(const auto& arg:values)
         {
-            res += value;
+            if(auto rat = Casting::toRational(arg))
+                r = r + (*rat);
+            else
+                throw std::runtime_error("Irrational addition unsupported!");
         }
-        return res;
+
+        return NodeFactory::makeNumber(r.getNumerator(),r.getDenominator());
     }
-    NodePtr Add::applySimplification(OpPtr opNode) const
+    NodePtr Add::complexSimplify(OpPtr opNode) const
     {
         auto& oldArgs = opNode->getArguments();
 
@@ -73,16 +80,16 @@ namespace AST
             reconstructed.push_back(nodeToAdd);
         }
 
-        opNode->setArguments(reconstructed); // wash away the old structure at this node
+        opNode = NodeFactory::getWithArguments(opNode,reconstructed); // wash away the old structure at this node
 
-        return localSimplification(opNode); // final collapse handling in case of a malformed addition
+        return complexLocalSimplify(opNode); // final collapse handling in case of a malformed addition
     }
-    NodePtr Add::applyExpansion(OpPtr opNode) const
+    NodePtr Add::complexExpansion(OpPtr opNode) const
     {
         return opNode->shared_from_this();
     }
 
-    NodePtr Add::localSimplification(OpPtr opNode) const
+    NodePtr Add::complexLocalSimplify(OpPtr opNode) const
     {
         auto& oldArgs = opNode->getArguments();
 
@@ -105,7 +112,7 @@ namespace AST
         if(newArgs.size() == 1)
             return newArgs[0]; // collapse to child
 
-        opNode->setArguments(newArgs);
+        opNode = NodeFactory::getWithArguments(opNode,newArgs);
         return opNode;
     }
     std::string Add::toString(const std::vector<NodePtr> &args) const

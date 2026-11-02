@@ -33,26 +33,32 @@ public:
         return "EMPTY TREE";
     }
 
-    double evaluate(const Environment& env) const
+    std::string prefixNotation()
     {
-        if (root)
-            return root->evaluate(env);
+        if(root)
+            return root->getPreFix();
+        return "EMPTY TREE";
+    }
+
+    NumberPtr evaluate(const Environment& env) const
+    {
+        if (auto symR = Casting::toSymbol(root))
+            return symR->evaluate(env);
+        else if(auto n = Casting::toNumber(root))
+            return n;
         else
-            return 0.0;
+            throw std::runtime_error("Unevaluateable root!");
     }
 
     void compress()
     {
         if(!root)
             return;
-        auto* symbol = root->asSymbol();
-        if(!symbol)
-            return;
-        auto* op = symbol->asOperator();
+        
+        auto op = Casting::toOperator(root);
         if(!op)
             return;
-            
-        NodePtr newRoot = op->simplify();
+        NodePtr newRoot = OperatorNode::simplify(op);
         root = std::move(newRoot);
     }
 
@@ -60,36 +66,35 @@ public:
     {
         if(!root)
             return;
-        auto* symbol = root->asSymbol();
-        if(!symbol)
-            return;
-        auto* op = symbol->asOperator();
+        auto op = Casting::toOperator(root);
         if(!op)
             return;
-            
-        NodePtr newRoot = op->expand();
+        NodePtr newRoot = OperatorNode::expand(op);
         root = std::move(newRoot);
     }
 
     void unify()
     {
-        if(!root)
+       if(!root)
             return;
-        auto* symbol = root->asSymbol();
-        if(!symbol)
-            return;
-        auto* op = symbol->asOperator();
+        auto op = Casting::toOperator(root);
         if(!op)
             return;
-            
-        op->unify();
-        op->localSimplify();
+        NodePtr newRoot = OperatorNode::unify(op);
+        root = std::move(newRoot);
     }
 
     void cannonize()
     {
-        expand();
-        compress();
+        int count = 0;
+        NodePtr rootBefore;
+        do
+        {
+            rootBefore = root;
+            expand();
+            compress();
+            count++;
+        }while(root && root != rootBefore && count < Config::MAX_FIXED_POINT_ITERATIONS); // pointer check
     }
 
     bool equals(const AlgebraExpression& other)

@@ -17,7 +17,7 @@ public:
             throw std::runtime_error("Malformed exp!");
         return "exp("+ args[0]->toString() + ")";
     }
-    virtual std::string getName() const override {return "exp";}
+    virtual std::string getName() const override {return "[implicit*]";}
     virtual Format getFormat() const override {return OpDefinition::Format::EXPLICIT_FUNCTION;}
     virtual size_t getPrecedence() const override {return 4;}
     virtual size_t getCanonArgumentCount() const override {return 1;}

@@ -112,6 +112,7 @@ int main()
         {
             tree = promptUserForExpression();
             std::cout <<"FINAL OUTPUT IN POSTFIX: " <<tree.postfixNotation() << std::endl;
+            std::cout <<"FINAL OUTPUT IN PREFIX: " <<tree.prefixNotation() << std::endl;
             std::cout <<"FINAL OUTPUT: " << tree.toString() << std::endl;
         }
         else if(option == 2)

@@ -8,7 +8,7 @@ class Min : public NumericLimit
 public:
     Min():NumericLimit(){};
 
-    virtual double evaluationFn(double n1,double n2) const override {return std::min(n1,n2);};
+    virtual NumberPtr evaluationFn(NumberPtr n1,NumberPtr n2) const override;
     virtual std::string getName() const override {return "min";}
     virtual std::shared_ptr<OpDefinition> clone() const override{return std::make_shared<Min>(*this);};
 

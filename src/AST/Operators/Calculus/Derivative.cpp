@@ -6,7 +6,9 @@ namespace AST
 {
 
 
-double AST::Derivative::evaluate(const std::vector<double> &values, const Environment& env) const
+Derivative::Derivative():OpDefinition({OpProperty::RIGHT_ASSOCIATIVE}){}
+
+NumberPtr AST::Derivative::evaluate(const std::vector<NumberPtr> &values, const Environment& env) const
 {
     throw std::runtime_error("Higher order operations cannot be evaluated directly, without substitution!");
 }
@@ -14,7 +16,7 @@ double AST::Derivative::evaluate(const std::vector<double> &values, const Enviro
 
 
 
-NodePtr AST::Derivative::applySimplification(OpPtr opNode) const
+NodePtr AST::Derivative::complexSimplify(OpPtr opNode) const
 {
     auto& arguments = opNode->getArguments();
 
@@ -31,7 +33,7 @@ NodePtr AST::Derivative::applySimplification(OpPtr opNode) const
     return opNode;
 }
 
-NodePtr AST::Derivative::applyExpansion(OpPtr opNode) const
+NodePtr AST::Derivative::complexExpansion(OpPtr opNode) const
 {
     auto& arguments = opNode->getArguments();
 
@@ -51,10 +53,10 @@ NodePtr AST::Derivative::applyExpansion(OpPtr opNode) const
         newArgs.reserve(innerArgs.size());
         for(const auto& arg:innerArgs)
         {
-            newArgs.push_back(NodeFactory::makeOperator("derivative",{arg,withRespectTo->clone()})); 
+            newArgs.push_back(NodeFactory::makeOperator("derivative",std::vector<NodePtr>{arg,withRespectTo})); 
         }
-        function->setArguments(newArgs);
-        return function->expand(); // keep expanding
+        function = NodeFactory::getWithArguments(function,newArgs);
+        return OperatorNode::expand(function); // keep expanding
     }
 
     if(function->getName() == "^")
@@ -71,17 +73,17 @@ NodePtr AST::Derivative::applyExpansion(OpPtr opNode) const
             {
             exp, 
             NodeFactory::makeOperator("^",{base,exponentMinusOne}),
-            NodeFactory::makeOperator("derivative",{base->clone(),withRespectTo->clone()})
+            NodeFactory::makeOperator("derivative",{base,withRespectTo})
             });
         
         auto exponentiationRule = NodeFactory::makeOperator("*", { // d/dx(n^v) = n^v * ln(n) * d/dx(v), the exponentiation rule where n is a constant and v is a function of x
-            function->clone(),
-            NodeFactory::makeOperator("ln", {base->clone()}),
-            NodeFactory::makeOperator("derivative",{exp->clone(),withRespectTo->clone()}) 
+            function,
+            NodeFactory::makeOperator("ln", {base}),
+            NodeFactory::makeOperator("derivative",{exp,withRespectTo}) 
         });
 
-        auto combined = NodeFactory::makeOperatorPtr("+",{powerRule,exponentiationRule});
-        return combined->expand(); // keep expanding
+        auto combined = NodeFactory::makeOperator("+",std::vector<NodePtr>{powerRule,exponentiationRule});
+        return OperatorNode::expand(combined); // keep expanding
     }
     else if(function->getName() == "*") 
     // good old product rule, unlike what I learned in school, it can be applied even on something like 5x
@@ -95,16 +97,16 @@ NodePtr AST::Derivative::applyExpansion(OpPtr opNode) const
 
         for(size_t i=0;i<innerArgs.size();i++)
         {
-            auto newMul = function->clone(); // get a copy of (u*v*w...)
-            auto newMulOp = Casting::toOperator(newMul);
+            auto newArgs = function->getArguments(); // not the original function's args, a temp copy of the vector itself
 
-            auto i_thTerm = newMulOp->getArgument(i);
-            newMulOp->getArguments()[i] = NodeFactory::makeOperator("derivative", {i_thTerm,withRespectTo->clone()});
+            auto i_thTerm = function->getArgument(i);
+            newArgs[i] = NodeFactory::makeOperator("derivative", {i_thTerm,withRespectTo});
+            auto newMulOp = NodeFactory::getWithArguments(function,newArgs); // don't overrite the old function reference
             termsToAdd.push_back(newMulOp);
         }
 
-        auto addition = NodeFactory::makeOperatorPtr("+",termsToAdd);
-        return addition->expand();
+        auto addition = NodeFactory::makeOperator("+",termsToAdd);
+        return OperatorNode::expand(addition);
     }
 
 
@@ -121,12 +123,12 @@ NodePtr AST::Derivative::applyExpansion(OpPtr opNode) const
         if(opName == "sin")
         {
             // d/du(sin(u)) = cos(u)
-            outerDerivative = NodeFactory::makeOperator("cos", {innerArgument->clone()});
+            outerDerivative = NodeFactory::makeOperator("cos", {innerArgument});
         }
         else if(opName == "cos")
         {
             // d/du(cos(u)) = -1 * sin(u)
-            auto sinNode = NodeFactory::makeOperator("sin", {innerArgument->clone()});
+            auto sinNode = NodeFactory::makeOperator("sin", {innerArgument});
             outerDerivative = NodeFactory::makeOperator("*", {NodeFactory::makeNumber(-1), sinNode});
         }
     }
@@ -138,27 +140,27 @@ NodePtr AST::Derivative::applyExpansion(OpPtr opNode) const
         
         auto lnBase = NodeFactory::makeOperator("ln", {baseNode}); 
         auto oneOverLnBase = NodeFactory::makeOperator("^", {lnBase, NodeFactory::makeNumber(-1)});
-        auto innerInverse = NodeFactory::makeOperator("^", {innerArgument->clone(), NodeFactory::makeNumber(-1)});
+        auto innerInverse = NodeFactory::makeOperator("^", {innerArgument, NodeFactory::makeNumber(-1)});
         
         outerDerivative = NodeFactory::makeOperator("*", {oneOverLnBase, innerInverse});
     }
 
     if(outerDerivative && innerArgument) // automatic chain rule when applicable
     {
-        auto innerDerivative = NodeFactory::makeOperator("derivative", {innerArgument->clone(), withRespectTo->clone()});
+        auto innerDerivative = NodeFactory::makeOperator("derivative", {innerArgument, withRespectTo});
 
         // f'(u) * d/dx(u)
-        auto fullChainRuleTree = NodeFactory::makeOperatorPtr("*", {outerDerivative, innerDerivative});
+        auto fullChainRuleTree = NodeFactory::makeOperator("*", {outerDerivative, innerDerivative});
 
         // keep expanding
-        return fullChainRuleTree->expand();
+        return OperatorNode::expand(fullChainRuleTree);
     }
 
 
     return opNode; // fallback
 }
 
-NodePtr AST::Derivative::localSimplification(OpPtr opNode) const
+NodePtr AST::Derivative::complexLocalSimplify(OpPtr opNode) const
 {
     auto& arguments = opNode->getArguments();
 

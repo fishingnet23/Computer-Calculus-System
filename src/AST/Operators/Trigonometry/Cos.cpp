@@ -3,15 +3,17 @@
 
 namespace AST
 {
+Cos::Cos():
+    OpDefinition(std::vector<OpProperty>{OpProperty::RIGHT_ASSOCIATIVE}){}
 
-NodePtr Cos::localSimplification(OpPtr opNode) const
+NodePtr Cos::complexLocalSimplify(OpPtr opNode) const
 {
     auto& args = opNode->getArguments();
     
     // If the child has collapsed to a pure literal number
     if (auto num = Casting::toNumber(args[0]))
     {
-        return NodeFactory::makeNumber(evaluate({num->getValue()},Environment()));
+        return evaluate({num},Environment());
     }
     return opNode;
 }
@@ -21,14 +23,14 @@ std::string Cos::toString(const std::vector<NodePtr> &args) const
     return getName() + "(" + args[0]->toString() + ")";
 }
 
-double Cos::evaluate(const std::vector<double>& values, const Environment& env) const
+NumberPtr Cos::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
 {
     if(values.size() != 1)
         throw std::runtime_error("Malformed cos node!");
-    return std::cos(values[0]);
+    return NodeFactory::makeNumber(std::cos(values[0]->getValue()));
 }
 
-NodePtr Cos::applySimplification(OpPtr opNode) const
+NodePtr Cos::complexSimplify(OpPtr opNode) const
 {
     auto child = opNode->getArgument(0);
     auto childOp = Casting::toOperator(child);
@@ -47,15 +49,14 @@ NodePtr Cos::applySimplification(OpPtr opNode) const
                 std::vector<NodePtr> remainingArgs = childOp->getArguments();
                 remainingArgs[0] = positiveCoeff;
                 
-                auto newInternalMul = NodeFactory::makeOperatorPtr("*", remainingArgs)->simplify();
-
-                opNode->setArguments({newInternalMul});
+                auto newInternalMul = OperatorNode::simplify(NodeFactory::makeOperator("*", remainingArgs));
+                opNode = NodeFactory::getWithArguments(opNode,std::vector<NodePtr>{newInternalMul});
             }
     }
     return opNode;
 }
 
-NodePtr Cos::applyExpansion(OpPtr opNode) const
+NodePtr Cos::complexExpansion(OpPtr opNode) const
 {
     return opNode->shared_from_this();
 }

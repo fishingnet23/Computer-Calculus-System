@@ -1,36 +1,33 @@
 #include "Operations.hpp"
-#include <memory>
+
 
 namespace AST
 {
-    const std::map<std::string, std::shared_ptr<OpDefinition>> OpRegistry::map = [] {
-        std::map<std::string, std::shared_ptr<OpDefinition>> operations;
-        operations.emplace("+", std::make_shared< Add>());
-        operations.emplace("*", std::make_shared< Multiply>());
-        operations.emplace("[implicit*]", std::make_shared< Multiply>(true));
-        operations.emplace("^", std::make_shared< Exponentiate>());
-        operations.emplace("log",std::make_shared<Logarithm>());
+    void OpRegistry::initialize() {
+        static bool initialized = false;
+        if (initialized) return; // Prevent double-execution
+        initialized = true;
 
-        operations.emplace("sin",std::make_shared<Sin>());
-        operations.emplace("cos",std::make_shared<Cos>());
+        auto& ops = getMutableMap();
+        ops.emplace("+", std::make_shared<Add>());
+        ops.emplace("*", std::make_shared<Multiply>());
+        ops.emplace("^", std::make_shared<Exponentiate>());
+        ops.emplace("log", std::make_shared<Logarithm>());
+        ops.emplace("sin", std::make_shared<Sin>());
+        ops.emplace("cos", std::make_shared<Cos>());
+        ops.emplace("max", std::make_shared<Max>());
+        ops.emplace("min", std::make_shared<Min>());
+        ops.emplace("derivative", std::make_shared<Derivative>());
 
-        operations.emplace("max",std::make_shared<Max>());
-        operations.emplace("min",std::make_shared<Min>());
+        auto& fluff = getMutableFluffyMap();
+        fluff.emplace("-", std::make_shared<Subtract>());
+        fluff.emplace("[implicit*]", std::make_shared<ImplicitMul>());
+        fluff.emplace("unary-", std::make_shared<Negate>());
+        fluff.emplace("/", std::make_shared<Divide>());
+        fluff.emplace("ln", std::make_shared<NaturalLog>());
+        fluff.emplace("exp", std::make_shared<Exp>());
+        fluff.emplace("sqrt", std::make_shared<SquareRoot>());
+    }
+}
 
-        operations.emplace("derivative",std::make_shared<Derivative>());
-        return operations;
-    }();
-
-    const std::map<std::string, std::shared_ptr< SyntaxFluff>> OpRegistry::fluffyMap = [] {
-        std::map<std::string, std::shared_ptr< SyntaxFluff>> operations;
-        operations.emplace("-", std::make_shared<Subtract>());
-        operations.emplace("unary-", std::make_shared< Negate>());
-        operations.emplace("/", std::make_shared< Divide>());
-        operations.emplace("ln",std::make_shared<NaturalLog>());
-        operations.emplace("exp",std::make_shared<Exp>());
-        operations.emplace("sqrt",std::make_shared<SquareRoot>());
-        // operations.emplace("root",std::make_shared<NthRoot>());
-
-        return operations;
-    }();
-};
+    

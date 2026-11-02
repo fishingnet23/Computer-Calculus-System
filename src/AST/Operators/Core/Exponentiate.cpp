@@ -3,13 +3,29 @@
 
 namespace AST
 {
-    double Exponentiate::evaluate(const std::vector<double>& values, const Environment& env) const
+    Exponentiate::Exponentiate():OpDefinition({OpProperty::RIGHT_ASSOCIATIVE}){}
+
+    NumberPtr Exponentiate::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
     {
-        if(values.size()!= 2)
+        if(values.size() != 2)
             throw std::runtime_error("Malformed exponentiation!");
-        return std::pow(values[0],values[1]);
+
+        auto base = Casting::toRational(values[0]);
+        auto argument = Casting::toRational(values[1]);
+        
+        if (!argument || !base)
+            throw std::runtime_error("Irrational exponentiation not implemented!");
+        
+        // Cast the numerator to double to force floating-point division!
+        double exponent_value = static_cast<double>(argument->getNumerator()) / argument->getDenominator();
+        
+        return NodeFactory::makeNumber(
+            std::pow(base->getNumerator(), exponent_value), 
+            std::pow(base->getDenominator(), exponent_value)
+        ); 
     }
-    NodePtr Exponentiate::applySimplification(OpPtr opNode) const
+
+    NodePtr Exponentiate::complexSimplify(OpPtr opNode) const
     {
         auto expOp = Casting::toOperator(opNode->getArgument(1));
 
@@ -23,7 +39,7 @@ namespace AST
         return opNode->shared_from_this(); 
     }
 
-    NodePtr Exponentiate::applyExpansion(OpPtr opNode) const
+    NodePtr Exponentiate::complexExpansion(OpPtr opNode) const
     {
         auto& args = opNode->getArguments();
         if (args.size() != 2)
@@ -32,21 +48,33 @@ namespace AST
         NodePtr base = args[0];
         NodePtr exp = args[1];
 
+        
+
+        auto expOp = Casting::toOperator(exp);
+
+        
+        if(expOp)
+        {
+            // x^(a+b) -> x^a*x^b
+            if(expOp->getName() == "+")
+            {
+                const auto& expArgs = expOp->getArguments();
+                std::vector<NodePtr> termsToMultiply;
+                termsToMultiply.reserve(expArgs.size());
+
+                for(const auto& arg:expArgs)
+                {
+                    termsToMultiply.push_back(NodeFactory::makeOperator("^",{base,arg}));
+                }
+
+                return NodeFactory::makeOperator("*",termsToMultiply);
+            }
+        }
+
         if (Casting::toVariable(base) || Casting::toNumber(base))
         {
             return opNode->shared_from_this();
         }
-
-        auto expNum = Casting::toNumber(exp);
-        if (!expNum)
-        {
-            return opNode->shared_from_this();
-        }
-
-        double expVal = expNum->getValue();
-        if (expVal <= 0.0) return opNode->shared_from_this(); 
-        if (expVal == 1.0) return base;
-
         auto baseOp = Casting::toOperator(base);
         if (!baseOp) 
         {
@@ -56,17 +84,29 @@ namespace AST
         if (baseOp->getName() == "*")
         {
             std::vector<NodePtr> distributedArgs;
+            distributedArgs.reserve(baseOp->getArguments().size());
             for (const auto& child : baseOp->getArguments())
             {
                 distributedArgs.push_back(NodeFactory::makeOperator("^", {child, exp}));
             }
-            return NodeFactory::makeOperatorPtr("*", distributedArgs)->expand();
+            return OperatorNode::expand(NodeFactory::makeOperator("*", distributedArgs));
         }
+        
+        auto expNum = Casting::toNumber(exp);
+        if (!expNum)
+        {
+            return opNode->shared_from_this();
+        }
+
+        double expVal = expNum->getValue();
+        if (std::abs(expVal - std::round(expVal)) > 1e-9) return opNode->shared_from_this(); 
+        if (expVal == 1.0) return base;
+
+        
 
         if (baseOp->getName() == "+")
         {
-            long long n = static_cast<long long>(expVal);
-            
+            long long n = std::abs(static_cast<long long>(expVal));
             NodePtr result = NodeFactory::makeNumber(1);
             NodePtr currentMultiplier = base;
 
@@ -74,14 +114,16 @@ namespace AST
             {
                 if (n % 2 == 1)
                 {
-                    result = NodeFactory::makeOperatorPtr("*", {result, currentMultiplier})->expand();
+                    result = OperatorNode::expand(NodeFactory::makeOperator("*", {result, currentMultiplier}));
                 }
                 if (n > 1)
                 {
-                    currentMultiplier = NodeFactory::makeOperatorPtr("*", {currentMultiplier, currentMultiplier})->expand();
+                    currentMultiplier = OperatorNode::expand(NodeFactory::makeOperator("*", {currentMultiplier, currentMultiplier}));
                 }
                 n /= 2;
             }
+            if(expVal < 0)
+                result = NodeFactory::makeOperator("^",{result,NodeFactory::makeNumber(-1)});
             return result;
         }
 
@@ -89,7 +131,7 @@ namespace AST
     }
 
 
-    NodePtr Exponentiate::localSimplification(OpPtr opNode) const
+    NodePtr Exponentiate::complexLocalSimplify(OpPtr opNode) const
     {
         auto& args = opNode->getArguments();
         if (args.size() != 2)
