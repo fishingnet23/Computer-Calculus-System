@@ -38,10 +38,10 @@ class NodeFactory
         static std::unordered_map<RegistryKey, WeakNodePtr, RegistryHashFunction> instance;
         return instance;
     }
+    
 
 
 public:
-
 
     static NumberPtr makeNumber(double val);
     static NumberPtr makeNumber(long long numerator, long long denominator);

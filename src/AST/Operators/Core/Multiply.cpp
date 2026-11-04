@@ -149,6 +149,7 @@ namespace AST
 
         std::vector<NodePtr> newArgs;
         newArgs.reserve(oldArgs.size());
+        double constantProduct = 1.0;
 
         for(const auto& node: oldArgs)
         {
@@ -158,13 +159,17 @@ namespace AST
                     return NodeFactory::makeNumber(0);
                 if(number->getValue() == 1)
                     continue;
+                constantProduct *= number->getValue();
+                continue;
             }
 
             newArgs.push_back(node);
         }
 
         if (newArgs.empty())
-            return NodeFactory::makeNumber(1);
+            return NodeFactory::makeNumber(constantProduct);
+        if(constantProduct != 1)
+            newArgs.insert(newArgs.begin(), NodeFactory::makeNumber(constantProduct));
         if(newArgs.size() == 1)
             return newArgs[0]; // collapse to child
 

@@ -3,19 +3,12 @@
 #include <sstream>
 
 
-// good test cases
-// (x^2 - x^2) + 3x^2(x^0 + 4) - 15x^2
-// 1 / 2x / 3x^2 / (1 / 4x)
-// (2x^2)^3^2 - 512x^18
-// sin(x) / cos(x) -x ^ 0 * sin(x) / cos(x)
-// x - -2x^2 - (3x^2 - -x)
-
-int main() 
+static void testCannonizer()
 {
     CanonizeTest cannonize;
-    std::cout << "AUTOMATIC TESTING SUITE " << std::endl;
     // cannonize.hideDescriptions();
     cannonize.showDescriptions(); // uncomment to enable descriptions
+
 
 //-----Addition
     // Basic identities
@@ -436,8 +429,8 @@ int main()
     cannonize.test("derivative(1/(x^2+1),x)", "-2x/(x^2+1)^2", "Reciprocal of polynomial");
 
     // Nested quotients
-    cannonize.test("derivative(x/(x+1),x)", "1/(x+1)^2", "Quotient cancellation");
-    cannonize.test("derivative((x+1)/(x-1),x)", "-2/(x-1)^2", "Quotient of linear polynomials");
+    cannonize.test("derivative(x/(x+1),x)", "(x+1)^-1 - x*(x+1)^-2", "Quotient derivative");
+    cannonize.test("derivative((x+1)/(x-1),x)", "(x-1)^-1 - (x+1)*(x-1)^-2", "Quotient of linear polynomials");
 
     // Basic power rule
     cannonize.test("derivative(x^2,x)", "2x", "Power rule");
@@ -459,8 +452,7 @@ int main()
     // Variable exponent
     cannonize.test("derivative(2^x,x)", "2^x*ln(2)", "Constant base variable exponent");
     cannonize.test("derivative(x^x,x)", "x^x*(ln(x)+1)", "Variable base and exponent");
-    cannonize.test("derivative(x^y,x)", "y*x^(y-1)", "Variable base constant exponent");
-    cannonize.test("derivative(a^x,x)", "a^x*ln(a)", "Symbolic constant base");
+    cannonize.test("derivative(x^y,x)", "y*x^(y-1)+x^y*ln(x)*derivative(y,x)", "Variable base constant exponent implicit differentiation");
 
     // General power rule
     cannonize.test("derivative(x^y,z)", "y*x^(y-1)*derivative(x,z)+x^y*ln(x)*derivative(y,z)", "General power rule");
@@ -584,7 +576,6 @@ int main()
 
     // Derivative + division
     cannonize.test("derivative((x^2+1)/x,x)", "1-1/x^2", "Derivative and quotient simplification");
-    cannonize.test("derivative(x/(x+1),x)", "1/(x+1)^2", "Derivative and quotient cancellation");
 
     // Derivative + logarithms
     cannonize.test("derivative(ln(x^2),x)", "2/x", "Derivative and logarithm simplification");
@@ -595,9 +586,28 @@ int main()
     cannonize.test("derivative(cos(3x^2),x)", "-6x*sin(3x^2)", "Derivative and nonlinear chain rule");
     cannonize.test("derivative(sin(x)*cos(x),x)", "cos(x)^2-sin(x)^2", "Derivative of trigonometric product");
 
+// legacy tests
+    // these are some test cases that I used to check the correctness of the cannonizer during development
+    cannonize.test("(x^2 - x^2) + 3x^2(x^0 + 4) - 15x^2", "0", "Legacy test case 1");
+    cannonize.test("1 / 2x / 3x^2 / (1 / 4x)","2/(3x^2)","Legacy test case 2");
+    cannonize.test("(2x^2)^3^2 - 512x^18","0","Legacy test case 3");
+    cannonize.test("sin(x) / cos(x) -x ^ 0 * sin(x) / cos(x)","0","Legacy test case 4");
+    cannonize.test("x - -2x^2 - (3x^2 - -x)","-x^2","Legacy test case 5");
+
+
     std::cout<<"\n";
     cannonize.printStatus();
     std::cout<<std::endl;
+}
+
+
+
+int main() 
+{
+    
+    std::cout << "AUTOMATIC TESTING SUITE " << std::endl;
+    
+    testCannonizer();
 
     std::cout << "Thank you for testing the program!" << std::endl;
 

@@ -56,7 +56,11 @@ std::vector<NodePtr> Parser::parseTokens() const
         }    
         else if(token.type == TokenType::VARIABLE)
         {
-            output.push_back(NodeFactory::makeVariable(token.value));
+            const double* constantValue = OpRegistry::getConstantValue(token.value);
+            if(constantValue)
+                output.push_back(NodeFactory::makeNumber(*constantValue));
+            else
+                output.push_back(NodeFactory::makeVariable(token.value));
         }
         else if(token.type == TokenType::L_BRACKET)
         {

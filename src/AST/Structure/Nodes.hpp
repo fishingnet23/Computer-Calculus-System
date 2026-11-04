@@ -164,11 +164,17 @@ public:
     virtual const std::string toString() const override;
     virtual const std::string getPostFix() const override
     {
-        return "(" + std::to_string(numerator) +", " + std::to_string(denominator) + ", RationalNode)";
+        if(denominator != 1.0)
+            return "(" + std::to_string(numerator) +", " + std::to_string(denominator) + ", RationalNode)";
+        else
+            return std::to_string(numerator);
     }
     virtual const std::string getPreFix() const override
     {
-        return "RationalNode(" + std::to_string(numerator) +", " + std::to_string(denominator) + ")";
+        if(denominator != 1.0)
+            return "RationalNode(" + std::to_string(numerator) +", " + std::to_string(denominator) + ")";
+        else
+            return std::to_string(numerator);
     }
     double getValue()const override
     {

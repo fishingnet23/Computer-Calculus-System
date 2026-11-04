@@ -6,6 +6,7 @@
 
 namespace AST {
 
+
 static RationalNode rationalApproximation(double val)
 {
     double leftToApproximate = val;

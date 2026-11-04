@@ -16,7 +16,7 @@ class Test
     bool showDescription;
 
 public:
-    Test():totalTests(0),successfulTests(0){};
+    Test():totalTests(0),successfulTests(0),showDescription(false){};
 
     virtual TestResult performTest(const std::string& input, const std::string& expected) const = 0;
 
@@ -25,11 +25,8 @@ public:
         totalTests++;
         TestResult res = performTest(input,expected);
 
-            std::cout << "[" << (res.success? "P":"FAIL")  << "] TEST: [ " << input << " -> " << expected << " ] Result: [" << res.resultString << "]";
+            std::cout << "[" << (res.success? "P":"FAIL")  << "] TEST: [ " << input << " -> " << expected << " ] Result: [" << res.resultString << "], Expected: [" << res.expectedString << "]";
             
-            if(!res.success)
-                std::cout << " Parsed expected string after processing: " << res.expectedString;
-
             if(showDescription)
                 std::cout << ", Description: " << description << std::endl;
             else

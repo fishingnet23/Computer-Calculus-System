@@ -17,11 +17,11 @@ namespace AST
             throw std::runtime_error("Irrational exponentiation not implemented!");
         
         // Cast the numerator to double to force floating-point division!
-        double exponent_value = static_cast<double>(argument->getNumerator()) / argument->getDenominator();
+        double exponent_value = static_cast<double>(argument->getNumerator()) / static_cast<double>(argument->getDenominator());
         
         return NodeFactory::makeNumber(
-            std::pow(base->getNumerator(), exponent_value), 
-            std::pow(base->getDenominator(), exponent_value)
+            std::pow(static_cast<double>(base->getNumerator()), exponent_value), 
+            std::pow(static_cast<double>(base->getDenominator()), exponent_value)
         ); 
     }
 

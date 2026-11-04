@@ -92,6 +92,13 @@ public:
         {
             rootBefore = root;
             expand();
+            count++;
+        }while(root && root != rootBefore && count < Config::MAX_FIXED_POINT_ITERATIONS); // pointer check
+        count = 0;
+        rootBefore = root;
+        do
+        {
+            rootBefore = root;
             compress();
             count++;
         }while(root && root != rootBefore && count < Config::MAX_FIXED_POINT_ITERATIONS); // pointer check

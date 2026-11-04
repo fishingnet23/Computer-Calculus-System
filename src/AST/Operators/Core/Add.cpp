@@ -95,20 +95,24 @@ namespace AST
 
         std::vector<NodePtr> newArgs;
         newArgs.reserve(oldArgs.size());
-
+        double constant = 0;
         for(const auto& node: oldArgs)
         {
             if(const auto& number = Casting::toNumber(node))
             {
                 if(number->getValue() == 0)
                     continue;
+                constant += number->getValue();
+                continue;
             }
 
             newArgs.push_back(node);
         }
 
         if (newArgs.empty())
-            return NodeFactory::makeNumber(0);
+            return NodeFactory::makeNumber(constant);
+        if(constant != 0)
+            newArgs.push_back(NodeFactory::makeNumber(constant));
         if(newArgs.size() == 1)
             return newArgs[0]; // collapse to child
 

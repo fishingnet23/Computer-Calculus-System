@@ -35,11 +35,8 @@ namespace AST
         
         auto innerOp = Casting::toOperator(opNode->getArgument(0));
 
-        if(innerOp && innerOp->getName() == "^")
-        {
-            auto base = innerOp->getArgument(0);
-            return OperatorNode::simplify(NodeFactory::makeOperator("*",{innerOp->getArgument(1),NodeFactory::makeOperator("log",{base,opNode->getArgument(1)})}));
-        }
+        if(innerOp && innerOp->getName() == "^" && innerOp->getArgument(0)->identical(opNode->getArgument(1)))
+            return innerOp->getArgument(1);
         
         return opNode->shared_from_this(); 
     }
@@ -53,6 +50,23 @@ namespace AST
         NodePtr argument = args[0];
         NodePtr base = args[1];
 
+        auto innerOp = Casting::toOperator(argument);
+        if(!innerOp)
+            return opNode->shared_from_this();
+        
+        std::vector<NodePtr> newArgs;
+        if(innerOp->getName() == "*")
+        {
+            for(const auto& arg:innerOp->getArguments())
+            {
+                newArgs.push_back(NodeFactory::makeOperator("log",{arg,base}));
+            }
+            return OperatorNode::simplify(NodeFactory::makeOperator("+",newArgs));
+        }
+        if(innerOp->getName() == "^")
+        {
+            return OperatorNode::simplify(NodeFactory::makeOperator("*",{innerOp->getArgument(1),NodeFactory::makeOperator("log",{innerOp->getArgument(0),opNode->getArgument(1)})}));
+        }
         
         return opNode->shared_from_this();
     }
@@ -100,7 +114,7 @@ namespace AST
         bool natural = false;
 
         if(NumberPtr num = Casting::toNumber(args[1]))
-            if(num->getValue() == E)
+            if(num->getValue() == Config::E)
                 natural = true;
 
         if(natural)
