@@ -22,4 +22,26 @@ void AlgebraExpression::buildFrom(const std::string &src)
     auto tokens = tokenizer.tokenize();
     root = parseTokens(tokens);
 }
+NodePtr AlgebraExpression::findVariableNode(const std::string &variableName)
+{
+    if (!root)
+        return nullptr;
+
+    auto sym = Casting::toSymbol(root);
+    if (sym && sym->getName() == variableName)
+        return root;
+
+    auto op = Casting::toOperator(root);
+    if (op)
+    {
+        for (const auto &arg : op->getArguments())
+        {
+            auto foundNode = AlgebraExpression(arg).findVariableNode(variableName);
+            if (foundNode)
+                return foundNode;
+        }
+    }
+
+    return nullptr;
+}
 };

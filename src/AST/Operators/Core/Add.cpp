@@ -133,4 +133,26 @@ namespace AST
 
         return str;
     }
+
+    OpPtr Add::buildInverseOf(OpPtr opToInvert) const
+    {
+        if(opToInvert->getDefinition()->getName() != getName())
+            return nullptr; // not the same operator
+
+        auto& args = opToInvert->getArguments();
+        std::vector<NodePtr> newArgs;
+        newArgs.reserve(args.size());
+
+        // The addition operator is invertible by negating all of its arguments, 
+        // so we can build the inverse by negating all of the arguments of the inputted operator
+
+        // Adding the new operator and this operator will always simplify to 0, the addative identiy.
+        for(const auto& arg: args)
+        {
+            auto negated = NodeFactory::makeOperator("*",{NodeFactory::makeNumber(-1),arg});
+            newArgs.push_back(negated);
+        }
+
+        return NodeFactory::makeOperator(getName(),newArgs);
+    }
 }

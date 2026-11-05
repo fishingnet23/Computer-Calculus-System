@@ -16,6 +16,7 @@ enum class TokenType
 	VARIABLE,
 	NUMBER,
 	OPERATION,
+	RELATION,
 };
 
 class Token

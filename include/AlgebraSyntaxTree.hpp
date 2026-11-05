@@ -1,3 +1,4 @@
+#pragma once
 #include "../src/AST/Parsing/Parser.hpp"
 
 namespace AST
@@ -110,5 +111,8 @@ public:
             return false;
         return root->identical(other.root);
     }
+
+    NodePtr findVariableNode(const std::string& variableName);
+    
 };
 }

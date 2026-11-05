@@ -71,7 +71,7 @@ void keepEvaluating(const AST::AlgebraExpression& tree)
         AST::Environment env(tokens);        
         try
         {
-            std::cout << tree.toString() << "=> " << tree.evaluate(env) << std::endl;
+            std::cout << tree.toString() << "=> " << tree.evaluate(env)->toString() << std::endl;
         }
         catch(const std::exception& e)
         {

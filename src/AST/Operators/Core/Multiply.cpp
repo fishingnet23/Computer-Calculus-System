@@ -217,4 +217,21 @@ namespace AST
     return str;
 }
 
+OpPtr Multiply::buildInverseOf(OpPtr opToInvert) const
+{
+    if(opToInvert->getDefinition()->getName() != getName())
+        return nullptr; // not the same operator
+
+    auto& args = opToInvert->getArguments();
+    std::vector<NodePtr> newArgs;
+    newArgs.reserve(args.size());
+
+    for(const auto& arg: args)
+    {
+        newArgs.push_back(NodeFactory::makeOperator("^",{arg,NodeFactory::makeNumber(-1)})); // a^(-1) = 1/a
+    }
+
+    return NodeFactory::makeOperator("*",newArgs);
+
+}
 }

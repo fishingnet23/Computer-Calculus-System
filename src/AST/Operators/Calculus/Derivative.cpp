@@ -192,4 +192,21 @@ std::string AST::Derivative::toString(const std::vector<NodePtr> &args) const
 
     return getName() + "(" + args[0]->toString()+","+args[1]->toString()+")";   
 }
+
+OpPtr AST::Derivative::buildInverseOf(OpPtr opToInvert) const
+{
+    if(opToInvert->getDefinition()->getName() != getName())
+        return nullptr; // not the same operator
+
+    auto& args = opToInvert->getArguments();
+    if(args.size() != 2)
+        return nullptr; // malformed derivative
+
+    auto function = args[0];
+    auto withRespectTo = args[1];
+
+    // the inverse of a derivative is an integral, return a nullptr for now
+    return nullptr;
+
+}
 }

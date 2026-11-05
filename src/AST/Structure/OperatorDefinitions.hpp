@@ -76,11 +76,20 @@ public:
     virtual NumberPtr evaluate(const std::vector<NumberPtr>& values, const Environment& env)const = 0;
     virtual NumberPtr evaluate(const std::vector<NumberPtr>& values) const {return evaluate(values,Environment());}
     
-    // simplification and expansion rules that can't be written as a string rule
-    // things like combining like terms in addition, that are very generic
+    // simplification rules. As a precondition, the inner arguments must already be simplified. 
     virtual NodePtr complexSimplify(OpPtr opNode) const = 0;
+    // expansion rules. As a precondition, the inner arguments must already be expanded.
     virtual NodePtr complexExpansion(OpPtr opNode) const = 0;
+
+    // local simplification rules. Does not require fully simplified arguments.
+    // this is where structural collapse happens. (Mostly)
     virtual NodePtr complexLocalSimplify(OpPtr opNode) const = 0;
+
+    // builds the inverse of the inputted operator, if possible.
+    // If the OpPtr is not invertible, it returns a nullptr.
+    // If the OpPtr isn't an operator with this definition, it returns a nullptr.
+    virtual OpPtr buildInverseOf(OpPtr opToInvert) const {return nullptr;} // default implementation returns nullptr, meaning the operator is not invertible
+
 
     static std::vector<NodePtr> reduceToSymbols(const OpPtr& op);
 

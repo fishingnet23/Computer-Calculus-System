@@ -203,4 +203,20 @@ namespace AST
 
         return str+"";
     }
+
+    OpPtr Exponentiate::buildInverseOf(OpPtr opToInvert) const
+    {
+        if(opToInvert->getDefinition()->getName() != getName())
+            return nullptr; // not the same operator
+
+        auto& args = opToInvert->getArguments();
+        if(args.size() != 2)
+            return nullptr; // malformed exponentiation
+
+        auto base = args[0];
+        auto exp = args[1];
+
+        return NodeFactory::makeOperator("log",{exp,base}); // the inverse of a^b is log_a(b)
+        // in my notation, log(b,a) = log_a(b)
+    }
 }

@@ -22,6 +22,6 @@ public:
     virtual size_t getCanonArgumentCount() const override {return 2;}
     virtual std::shared_ptr<OpDefinition> clone() const override{return std::make_shared<Derivative>(*this);};
 
-
+    virtual OpPtr buildInverseOf(OpPtr opToInvert) const override;
 };
 }

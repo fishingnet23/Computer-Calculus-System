@@ -122,4 +122,19 @@ namespace AST
         else
             return "log(" + args[0]->toString() +"," + args[1]->toString() + ")";
     }
+
+    OpPtr Logarithm::buildInverseOf(OpPtr opToInvert) const
+    {
+        if(opToInvert->getDefinition()->getName() != getName())
+            return nullptr; // not the same operator
+
+        auto& args = opToInvert->getArguments();
+        if(args.size() != 2)
+            return nullptr; // malformed operator
+
+        NodePtr argument = args[0];
+        NodePtr base = args[1];
+
+        return NodeFactory::makeOperator("^",{base,argument}); // inverse of log_a(b) is a^b
+    }
 }

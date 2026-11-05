@@ -1,5 +1,6 @@
 #include <iostream>
 #include "TestTypes/CannonizeTest.hpp"
+#include "TestTypes/InverseTest.hpp"
 #include <sstream>
 
 
@@ -600,6 +601,21 @@ static void testCannonizer()
     std::cout<<std::endl;
 }
 
+static void testInverses()
+{
+    InverseTest inverses;
+
+    // inverses.hideDescriptions();
+    inverses.showDescriptions(); // uncomment to enable descriptions
+
+    inverses.test("x^2 + x^3", "-x^2 - x^3", "Inverse with respect to addition of expression");
+    inverses.test("5*x*y", "1/5 * 1/x * 1/y", "Inverse with respect to multiplication of expression");
+    inverses.test("log(x^2, 2)", "2^(x^2)", "Inverse with respect to logarithm of expression");
+
+    std::cout<<"\n";
+    inverses.printStatus();
+    std::cout<<std::endl;
+}
 
 
 int main() 
@@ -608,7 +624,7 @@ int main()
     std::cout << "AUTOMATIC TESTING SUITE " << std::endl;
     
     testCannonizer();
-
+    // testInverses();
     std::cout << "Thank you for testing the program!" << std::endl;
 
     return 0;
