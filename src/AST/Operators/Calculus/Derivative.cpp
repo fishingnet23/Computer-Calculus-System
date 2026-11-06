@@ -24,7 +24,7 @@ NodePtr AST::Derivative::complexSimplify(OpPtr opNode) const
         throw std::runtime_error("Malformed differentiation! Cannot differentiate without both an operand and a variable to differentiate with respect to!");
 
     auto function = arguments[0];
-    auto withRespectTo = Casting::toVariable(arguments[1]);
+    auto withRespectTo = SoftCasting::toVariable(arguments[1]);
 
     if(!withRespectTo) // the operator is malformed, the engine will not deal with derivatives with respect to functions
         return opNode;
@@ -40,8 +40,8 @@ NodePtr AST::Derivative::complexExpansion(OpPtr opNode) const
     if(arguments.size() != 2)
         throw std::runtime_error("Malformed differentiation! Cannot differentiate without both an operand and a variable to differentiate with respect to!");
 
-    auto function = Casting::toOperator(arguments[0]);
-    auto withRespectTo = Casting::toVariable(arguments[1]);
+    auto function = SoftCasting::toOperator(arguments[0]);
+    auto withRespectTo = SoftCasting::toVariable(arguments[1]);
 
     if(!function || !withRespectTo) // there is nothing to expand, or the operator is just malformed
         return opNode;
@@ -168,15 +168,15 @@ NodePtr AST::Derivative::complexLocalSimplify(OpPtr opNode) const
         throw std::runtime_error("Malformed differentiation! Cannot differentiate without both an operand and a variable to differentiate with respect to!");
 
     auto& function = arguments[0];
-    auto withRespectTo = Casting::toVariable(arguments[1]);
+    auto withRespectTo = SoftCasting::toVariable(arguments[1]);
 
     if(!withRespectTo)
         throw std::runtime_error("Malformed differentiation! Cannot differentiate to a non variable! (Does not support differentiating with respect to functions)");
 
-    if(auto constant = Casting::toNumber(function))
+    if(auto constant = SoftCasting::toNumber(function))
         return NodeFactory::makeNumber(0); // d/dx(c) = 0, for all c which are real numbers
     
-    if(auto variable = Casting::toVariable(function)) // d/dx(x) = 1, for all x
+    if(auto variable = SoftCasting::toVariable(function)) // d/dx(x) = 1, for all x
     {
         if(variable->identical(withRespectTo))
             return NodeFactory::makeNumber(1);

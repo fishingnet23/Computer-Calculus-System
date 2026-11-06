@@ -1,6 +1,15 @@
 #pragma once
+
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 namespace AST
 {
+namespace mp = boost::multiprecision;
+using InfRational = mp::cpp_rational;
+using InfInt = mp::cpp_int;
+using InfFloat = boost::multiprecision::number<
+    boost::multiprecision::cpp_dec_float<100> // not infinite sadly, but massive
+>;
 class Config
 {
 public:

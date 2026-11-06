@@ -10,24 +10,39 @@ namespace AST
         if(values.size() != 2)
             throw std::runtime_error("Malformed exponentiation!");
 
-        auto base = Casting::toRational(values[0]);
-        auto argument = Casting::toRational(values[1]);
         
-        if (!argument || !base)
-            throw std::runtime_error("Irrational exponentiation not implemented!");
+        InfFloat baseFloat, expFloat;
+        if (auto base = SoftCasting::toRational(values[0]))
+        {
+            baseFloat = base->getFraction().convert_to<InfFloat>();
+        }
+        else if(auto base = SoftCasting::toFloat(values[0]))
+        {
+            baseFloat = base->getFloat();
+        }
+        else
+            throw std::runtime_error("Invalid scalar base for exponentiation!");
+
+        if (auto exponent = SoftCasting::toRational(values[1]))
+        {
+            expFloat = exponent->getFraction().convert_to<InfFloat>();
+        }
+        else if(auto exponent = SoftCasting::toFloat(values[1]))
+        {
+            expFloat = exponent->getFloat();
+        }
+        else
+            throw std::runtime_error("Invalid scalar exponent for exponentiation!");
         
-        // Cast the numerator to double to force floating-point division!
-        double exponent_value = static_cast<double>(argument->getNumerator()) / static_cast<double>(argument->getDenominator());
-        
-        return NodeFactory::makeNumber(
-            std::pow(static_cast<double>(base->getNumerator()), exponent_value), 
-            std::pow(static_cast<double>(base->getDenominator()), exponent_value)
-        ); 
+
+        InfFloat finalResult = mp::pow(baseFloat, expFloat);
+
+        return NodeFactory::makeNumber(finalResult); 
     }
 
     NodePtr Exponentiate::complexSimplify(OpPtr opNode) const
     {
-        auto expOp = Casting::toOperator(opNode->getArgument(1));
+        auto expOp = SoftCasting::toOperator(opNode->getArgument(1));
 
         if(expOp && expOp->getName() == "log")
         {
@@ -50,7 +65,7 @@ namespace AST
 
         
 
-        auto expOp = Casting::toOperator(exp);
+        auto expOp = SoftCasting::toOperator(exp);
 
         
         if(expOp)
@@ -71,11 +86,11 @@ namespace AST
             }
         }
 
-        if (Casting::toVariable(base) || Casting::toNumber(base))
+        if (SoftCasting::toVariable(base) || SoftCasting::toNumber(base))
         {
             return opNode->shared_from_this();
         }
-        auto baseOp = Casting::toOperator(base);
+        auto baseOp = SoftCasting::toOperator(base);
         if (!baseOp) 
         {
             return opNode->shared_from_this();
@@ -91,22 +106,23 @@ namespace AST
             }
             return OperatorNode::expand(NodeFactory::makeOperator("*", distributedArgs));
         }
-        
-        auto expNum = Casting::toNumber(exp);
-        if (!expNum)
-        {
+        InfFloat expVal;
+        if(auto expRat = SoftCasting::toRational(exp))
+            expVal = expRat->getFraction().convert_to<InfFloat>();
+        else if(auto expNum = SoftCasting::toFloat(exp))
+            expVal = expNum->getFloat();
+        else
             return opNode->shared_from_this();
-        }
 
-        double expVal = expNum->getValue();
-        if (std::abs(expVal - std::round(expVal)) > 1e-9) return opNode->shared_from_this(); 
-        if (expVal == 1.0) return base;
+        if (mp::abs(expVal - mp::round(expVal)) > 1e-9) return opNode->shared_from_this(); 
+        if (expVal == 1) return base;
 
-        
+        if (expVal < 0 )
+            return opNode->shared_from_this();
 
         if (baseOp->getName() == "+")
         {
-            long long n = std::abs(static_cast<long long>(expVal));
+            long long n = static_cast<long long>(expVal);
             NodePtr result = NodeFactory::makeNumber(1);
             NodePtr currentMultiplier = base;
 
@@ -114,19 +130,23 @@ namespace AST
             {
                 if (n % 2 == 1)
                 {
-                    result = OperatorNode::expand(NodeFactory::makeOperator("*", {result, currentMultiplier}));
+                    result = NodeFactory::makeOperator("*", {result, currentMultiplier});
                 }
                 if (n > 1)
                 {
-                    currentMultiplier = OperatorNode::expand(NodeFactory::makeOperator("*", {currentMultiplier, currentMultiplier}));
+                    currentMultiplier = NodeFactory::makeOperator("*", {currentMultiplier, currentMultiplier});
                 }
                 n /= 2;
             }
-            if(expVal < 0)
+            if(n<0)
                 result = NodeFactory::makeOperator("^",{result,NodeFactory::makeNumber(-1)});
-            return result;
-        }
 
+            // if(auto op = SoftCasting::toOperator(result))
+            //     return OperatorNode::expand(op);
+            // else
+                return result;
+        }
+        
         return opNode->shared_from_this();
     }
 
@@ -140,17 +160,16 @@ namespace AST
         NodePtr base = args[0];
         NodePtr exp = args[1];
 
-        auto baseNum = Casting::toNumber(base);
-        auto expNum = Casting::toNumber(exp);
+        auto baseNum = SoftCasting::toNumber(base);
+        auto expNum = SoftCasting::toNumber(exp);
 
         if (baseNum && expNum)
         {
-            return NodeFactory::makeNumber(std::pow(baseNum->getValue(), expNum->getValue()));
+            return NodeFactory::makeNumber(mp::pow(baseNum->getValue(), expNum->getValue()));
         }
-
         if (expNum)
         {
-            double expVal = expNum->getValue();
+            InfFloat expVal = expNum->getValue();
             if (expVal == 0.0)
                 return NodeFactory::makeNumber(1);
             if (expVal == 1.0)
@@ -159,7 +178,7 @@ namespace AST
     
         if (baseNum)
         {
-            double baseVal = baseNum->getValue();
+            InfFloat baseVal = baseNum->getValue();
             if (baseVal == 1.0)
                 return NodeFactory::makeNumber(1);
             if (baseVal == 0.0)
@@ -170,7 +189,7 @@ namespace AST
         }
 
         //(a^b)^c = a^(b*c)
-        if (auto innerOp = Casting::toOperator(base); innerOp && innerOp->getName() == "^")
+        if (auto innerOp = SoftCasting::toOperator(base); innerOp && innerOp->getName() == "^")
         {
             auto& innerArgs = innerOp->getArguments();
             NodePtr innerBase = innerArgs[0];
@@ -188,14 +207,14 @@ namespace AST
         std::string str = "";
         if(args.size() == 0)
             return str;
-        if(Casting::toOperator(args[0]))
+        if(SoftCasting::toOperator(args[0]))
             str += "(" + args[0]->toString() + ")";
         else
             str += args[0]->toString();
 
         for(size_t i = 1;i<args.size();i++)
         {
-            if(Casting::toOperator(args[i]))
+            if(SoftCasting::toOperator(args[i]))
                 str+="^("+args[i]->toString()+")";
             else
                 str+= "^" + args[i]->toString();

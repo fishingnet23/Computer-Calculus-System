@@ -52,11 +52,11 @@ std::vector<NodePtr> Parser::parseTokens() const
     {
         if(token.type == TokenType::NUMBER)
         {
-            output.push_back(NodeFactory::makeNumber(std::stod(token.value)));
+            output.push_back(NodeFactory::makeNumberFromLiteral(token.value));
         }    
         else if(token.type == TokenType::VARIABLE)
         {
-            const double* constantValue = OpRegistry::getConstantValue(token.value);
+            const InfFloat* constantValue = OpRegistry::getConstantValue(token.value);
             if(constantValue)
                 output.push_back(NodeFactory::makeNumber(*constantValue));
             else

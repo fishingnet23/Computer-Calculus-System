@@ -7,18 +7,38 @@ namespace AST
 
     NumberPtr Add::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
     {
-        RationalNode r(0,1);
+        bool allRational = true;
+        for (const auto& arg : values) {
+            if (!SoftCasting::toRational(arg)) {
+                allRational = false;
+                break;
+            }
+        }
+        if (allRational) {
+            InfRational r(0, 1);
+            for (const auto& arg : values) {
+                r += SoftCasting::toRational(arg)->getFraction();
+            }
+            return NodeFactory::makeNumber(r);
+        }
+        
+        InfFloat f(0);
 
-        for(const auto& arg:values)
-        {
-            if(auto rat = Casting::toRational(arg))
-                r = r + (*rat);
-            else
-                throw std::runtime_error("Irrational addition unsupported!");
+        for (const auto& arg : values) {
+            if (auto rat = SoftCasting::toRational(arg)) {
+                f += rat->getFraction().convert_to<InfFloat>();
+            } 
+            else if (auto f2 = SoftCasting::toFloat(arg)) {
+                f += f2->getFloat();
+            } 
+            else {
+                f += InfFloat(arg->getValue());
+            }
         }
 
-        return NodeFactory::makeNumber(r.getNumerator(),r.getDenominator());
+        return NodeFactory::makeNumber(f);
     }
+
     NodePtr Add::complexSimplify(OpPtr opNode) const
     {
         auto& oldArgs = opNode->getArguments();
@@ -27,29 +47,29 @@ namespace AST
         coeffMap.setConstant(0);
         for(const auto& node: oldArgs)
         {
-            if(const auto& number = Casting::toNumber(node))
+            if(const auto& number = SoftCasting::toNumber(node))
             {
                 coeffMap.setConstant(coeffMap.getConstant()+number->getValue());
                 continue;
             }
-            double coeff = 1;
-            if(const auto& symbol = Casting::toSymbol(node))
+            InfFloat coeff(1);
+            if(const auto& symbol = SoftCasting::toSymbol(node))
             {
                 SymbolPtr final = symbol;
-                if(const auto& innerOp = Casting::toOperator(node))
+                if(const auto& innerOp = SoftCasting::toOperator(node))
                 {
                     if(innerOp->getName() == "*")
                     {
                         auto& innerArgs = innerOp->getArguments();
                         // assume multiplication is not malformed and that it is already canonicalized
-                        if(const auto& coeffNode = Casting::toNumber(innerArgs[0]))
+                        if(const auto& coeffNode = SoftCasting::toNumber(innerArgs[0]))
                         {
                             coeff = coeffNode->getValue();
-                            final = Casting::toSymbol(innerOp->remakeWithoutArgument(0));
+                            final = SoftCasting::toSymbol(innerOp->remakeWithoutArgument(0));
                         }
                     }
                 }
-                coeffMap.insertOrAccumulate(final->getPostFix(),final,[coeff](double& accumCoeff,double& accumDeg)
+                coeffMap.insertOrAccumulate(final->getPostFix(),final,[coeff](InfFloat& accumCoeff,InfFloat& accumDeg)
                 {
                     accumCoeff+=coeff;
                 },coeff,1);
@@ -95,10 +115,10 @@ namespace AST
 
         std::vector<NodePtr> newArgs;
         newArgs.reserve(oldArgs.size());
-        double constant = 0;
+        InfFloat constant(0);
         for(const auto& node: oldArgs)
         {
-            if(const auto& number = Casting::toNumber(node))
+            if(const auto& number = SoftCasting::toNumber(node))
             {
                 if(number->getValue() == 0)
                     continue;

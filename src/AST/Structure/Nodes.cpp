@@ -5,35 +5,47 @@
 namespace AST
 {
 
-    SymbolPtr Casting::toSymbol(const NodePtr node)
+    SymbolPtr SoftCasting::toSymbol(const NodePtr node)
     {
         if (!node) return nullptr;
         return node->asSymbol()? std::static_pointer_cast<const Symbol>(node):nullptr;
     }
-    NumberPtr Casting::toNumber(const NodePtr node)
+    NumberPtr SoftCasting::toNumber(const NodePtr node)
     {
         if (!node) return nullptr;
         return node->asNumber()? std::static_pointer_cast<const NumberNode>(node):nullptr;
     }
 
-    RationalPtr Casting::toRational(const NodePtr node)
+    RationalPtr SoftCasting::toRational(const NodePtr node)
     {
         if (!node) return nullptr;
         return node->asNumber()? node->asNumber()->asRational()? std::static_pointer_cast<const RationalNode>(node):nullptr:nullptr;
     }
 
-    RationalPtr Casting::toRational(const NumberPtr node)
+    RationalPtr SoftCasting::toRational(const NumberPtr node)
     {
         if (!node) return nullptr;
         return node->asRational()? std::static_pointer_cast<const RationalNode>(node):nullptr;
     }
 
-    VariablePtr Casting::toVariable(const SymbolPtr node)
+    FloatPtr SoftCasting::toFloat(const NodePtr node)
+    {
+        if (!node) return nullptr;
+        return node->asNumber()? node->asNumber()->asFloat()? std::static_pointer_cast<const FloatNode>(node):nullptr:nullptr;
+    }
+
+    FloatPtr SoftCasting::toFloat(const NumberPtr node)
+    {
+        if (!node) return nullptr;
+        return node->asFloat()? std::static_pointer_cast<const FloatNode>(node):nullptr;
+    }
+
+    VariablePtr SoftCasting::toVariable(const SymbolPtr node)
     {
         if (!node) return nullptr;
         return node->asVariable()? std::static_pointer_cast<const VariableNode>(node):nullptr;
     }
-    VariablePtr Casting::toVariable(const NodePtr node)
+    VariablePtr SoftCasting::toVariable(const NodePtr node)
     {
         if (!node) return nullptr;
         auto symbol = node->asSymbol();
@@ -41,12 +53,12 @@ namespace AST
             ? std::static_pointer_cast<const VariableNode>(node) 
             : nullptr;
     }
-    OpPtr Casting::Casting::toOperator(const SymbolPtr node)
+    OpPtr SoftCasting::SoftCasting::toOperator(const SymbolPtr node)
     {
         if (!node) return nullptr;
         return node->asOperator()? std::static_pointer_cast<const OperatorNode>(node):nullptr;
     }
-    OpPtr Casting::Casting::toOperator(const NodePtr node)
+    OpPtr SoftCasting::SoftCasting::toOperator(const NodePtr node)
     {
         if (!node) return nullptr;
         return node->asSymbol() && node->asSymbol()->asOperator() 
@@ -63,7 +75,7 @@ namespace AST
         const auto* op = node->asSymbol()->asOperator();
 
         if(op->getName() == "^")
-        {   if(auto exp = Casting::toNumber(op->getArgument(1)))
+        {   if(auto exp = SoftCasting::toNumber(op->getArgument(1)))
                 return {op->getArgument(0), exp,one};
             else
                 return {node,one,one}; // complex exponent, like 2^x or x^(x+1)
@@ -71,7 +83,7 @@ namespace AST
 
         if(op->getName() == "*")
         {
-            auto coeff = Casting::toNumber(op->getArgument(0));
+            auto coeff = SoftCasting::toNumber(op->getArgument(0));
             if(!coeff) // case with no constant multiple
                 return {node,one,one};
             if(op->getArguments().size() != 2) // if the multiplication is beyond binary, don't bother
@@ -81,7 +93,7 @@ namespace AST
             const auto* innerSym = innerArg->asSymbol(); 
             if(!innerSym) // malformed multiplication, prob two numbers
             {
-                if(auto innerNum = Casting::toNumber(innerArg))
+                if(auto innerNum = SoftCasting::toNumber(innerArg))
                     return {NodeFactory::makeNumber(innerNum->getValue() * coeff->getValue()),one,one};
                 return {node,one,one};
             }
@@ -105,7 +117,7 @@ namespace AST
 
     int Node::nodeRank(NodePtr node)
     {
-        if (node->type() == NodeType::Number)
+        if (node->type() == NodeType::Scalar)
             return 0;
         else if (node->type() == NodeType::Variable)
             return 1;
@@ -137,9 +149,9 @@ namespace AST
             return rankA - rankB;
         
         
-        if (polyA.node->type() == NodeType::Number) {
+        if (polyA.node->type() == NodeType::Scalar) {
             // for this case, ignore coeffecient / degree since they are irrelevant
-            return polyA.node->asNumber()->getValue() - polyB.node->asNumber()->getValue();
+            return SoftCasting::toNumber(polyA.node)->compare(SoftCasting::toNumber(polyB.node));
         }
 
         if (polyA.node->type() == NodeType::Variable) 
@@ -147,11 +159,11 @@ namespace AST
             int comp = polyA.node->asSymbol()->getName().compare(polyB.node->asSymbol()->getName());
             if(comp != 0)
                 return comp;
-            comp = polyA.degree->getValue() - polyB.degree->getValue();
+            comp = polyA.degree->compare(polyB.degree);
             if(comp != 0)
                 return comp;
             
-            return polyA.coeff->getValue() - polyB.coeff->getValue(); // ultimate fallback, will return 0 if identical
+            return polyA.coeff->compare(polyB.coeff); // ultimate fallback, will return 0 if identical
         }
 
         if(polyA.node->type() == NodeType::Operator)
@@ -159,10 +171,10 @@ namespace AST
             int comp = polyA.node->asSymbol()->getName().compare(polyB.node->asSymbol()->getName());
             if(comp != 0)
                 return comp;
-            comp = polyA.degree->getValue() - polyB.degree->getValue();
+            comp = polyA.degree->compare(polyB.degree);
             if(comp != 0)
                 return comp;
-            comp =  polyA.coeff->getValue() - polyB.coeff->getValue();
+            comp =   polyA.coeff->compare(polyB.coeff);
             if(comp != 0)
                 return comp;
             
@@ -201,12 +213,12 @@ namespace AST
         for(size_t i=0;i<tokens.size();i++)
         {
             const std::string& arg = tokens[i];
-            double val = 0.0;
+            InfFloat val = 0.0;
             if(i+1 < tokens.size())
             {
                 try
                 {
-                    val = std::stod(tokens[i+1]);
+                    val = InfFloat(tokens[i+1]);
                 }
                 catch (const std::exception& e) {
                     map[arg] = 0.0;
@@ -218,7 +230,7 @@ namespace AST
             else
                 try
                 {
-                    val = std::stod(arg);
+                    val = InfFloat(arg);
                     break;
                 }
                 catch (const std::exception& e) {
@@ -229,29 +241,18 @@ namespace AST
         }
     }
 
-    const std::string RationalNode::toString() const
-    {
-        if(denominator == 0)
-            return "undefined";
-        if(denominator == 1)
-            return AST::toString(numerator);
-        return AST::toString(numerator) + "/" + AST::toString(denominator);
-    }
-
     bool RationalNode::identical(const NodePtr other) const
     {
-        auto rat = Casting::toRational(other);
+        auto rat = SoftCasting::toRational(other);
         if(!rat)
             return false; // for now
-        double thisVal = static_cast<double>(numerator) / static_cast<double>(denominator);
-        double otherVal = static_cast<double>(rat->numerator) / static_cast<double>(rat->denominator);
 
-        return std::fabs(thisVal - otherVal) < Config::EPSILON;
+        return mp::abs(fraction - rat->fraction) < Config::EPSILON;
     }
 
     NumberPtr VariableNode::evaluate(const Environment &env) const
     {
-        double value = env[this->getName()];
+        InfFloat value = env[this->getName()];
         return NodeFactory::makeNumber(value);
     }
     
@@ -316,7 +317,7 @@ namespace AST
         std::vector<NodePtr> unifiedArgs;
         unifiedArgs.reserve(opToSimplify->getArguments().size());
         for(auto& arg : opToSimplify->getArguments())
-            if(auto innerOp = Casting::toOperator(arg))
+            if(auto innerOp = SoftCasting::toOperator(arg))
                 unifiedArgs.push_back(unify(innerOp));
             else
                 unifiedArgs.push_back(arg);
@@ -333,7 +334,7 @@ namespace AST
             flattenedArgs.reserve(unifiedArgs.size() * 2);
             for(const auto& arg : unifiedArgs)
             {
-                auto op = Casting::toOperator(arg);
+                auto op = SoftCasting::toOperator(arg);
                 if(op && op->sameOperator(opToSimplify))
                 {
                     const OperatorNode* innerOp = arg->asSymbol()->asOperator();
@@ -374,7 +375,7 @@ namespace AST
         opToSimplify = unify(opToSimplify);
         // simplify locally then try recursively
         auto cleaned = localSimplify(opToSimplify);
-        opToSimplify = Casting::toOperator(cleaned);
+        opToSimplify = SoftCasting::toOperator(cleaned);
         
         if(!opToSimplify)
             return cleaned;
@@ -384,7 +385,7 @@ namespace AST
 
         for(auto& arg : opToSimplify->getArguments())
         {
-            if(auto innerOperator = Casting::toOperator(arg)) {
+            if(auto innerOperator = SoftCasting::toOperator(arg)) {
                 simplifiedArgs.push_back(simplify(innerOperator));
             } else {
                 simplifiedArgs.push_back(arg);
@@ -396,13 +397,13 @@ namespace AST
     
         // second shallow cleaning, ensures compressions that can only be found after simplifying children are found
         auto postChildClean = opToSimplify->localSimplify(opToSimplify);
-        opToSimplify = Casting::toOperator(postChildClean);
+        opToSimplify = SoftCasting::toOperator(postChildClean);
         
         if(!opToSimplify)
             return postChildClean;
 
         auto final = opToSimplify->getDefinition()->complexSimplify(opToSimplify);
-        opToSimplify = Casting::toOperator(final);
+        opToSimplify = SoftCasting::toOperator(final);
         if(!opToSimplify)
             return final;
     
@@ -420,7 +421,7 @@ namespace AST
         opToExpand = unify(opToExpand);
         // simplify locally then try recursively
         auto cleaned = localSimplify(opToExpand);
-        opToExpand = Casting::toOperator(cleaned);
+        opToExpand = SoftCasting::toOperator(cleaned);
         
         if(!opToExpand)
             return cleaned;
@@ -430,7 +431,7 @@ namespace AST
 
         for(auto& arg : opToExpand->getArguments())
         {
-            if(auto innerOperator = Casting::toOperator(arg)) {
+            if(auto innerOperator = SoftCasting::toOperator(arg)) {
                 simplifiedArgs.push_back(expand(innerOperator));
             } else {
                 simplifiedArgs.push_back(arg);
@@ -442,13 +443,13 @@ namespace AST
     
         // second shallow cleaning, ensures compressions that can only be found after expanding children are found
         auto postChildClean = opToExpand->getDefinition()->complexLocalSimplify(opToExpand);
-        opToExpand = Casting::toOperator(postChildClean);
+        opToExpand = SoftCasting::toOperator(postChildClean);
         
         if(!opToExpand)
             return postChildClean;
 
         auto final = opToExpand->getDefinition()->complexExpansion(opToExpand);
-        opToExpand = Casting::toOperator(final);
+        opToExpand = SoftCasting::toOperator(final);
         if(!opToExpand)
             return final;
 
@@ -461,7 +462,7 @@ namespace AST
     {
         NodePtr expanded = expand(opToSimplify); 
         
-        opToSimplify = Casting::toOperator(expanded);
+        opToSimplify = SoftCasting::toOperator(expanded);
         if(!opToSimplify)
             return expanded;
             
@@ -476,7 +477,7 @@ namespace AST
     {
         std::string str = toString();
         
-        if (const double* val = env.lookup(str))
+        if (const InfFloat* val = env.lookup(str))
             return NodeFactory::makeNumber(*val);
 
         std::vector<NumberPtr> values = {};
@@ -484,14 +485,47 @@ namespace AST
 
         for(const auto& arg:arguments)
         {
-            if(auto symb = Casting::toSymbol(arg))
+            if(auto symb = SoftCasting::toSymbol(arg))
                 values.push_back(symb->evaluate(env));
-            else if(auto num = Casting::toNumber(arg))
+            else if(auto num = SoftCasting::toNumber(arg))
                 values.push_back(num);
         }
 
         return op->evaluate(values,env);
     }
 
+    const std::string FloatNode::toString() const  
+    {
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(0) << val; // dump it all
+        std::string raw_str = ss.str();
+
+        if (raw_str.length() > 12) {
+            std::stringstream compressed;
+            
+            compressed << raw_str[0] << ".";
+            
+            compressed << raw_str.substr(1, 5);
+            
+            std::string leading = compressed.str();
+            leading.erase(leading.find_last_not_of('0') + 1, std::string::npos);
+            if (leading.back() == '.') {
+                leading.pop_back();
+            }
+
+            size_t exponent = raw_str.length() - 1;
+            
+            return leading + "...e+" + std::to_string(exponent);
+        }
+
+        return raw_str;
+    }
+
+    bool FloatNode::identical(const NodePtr other) const
+    {
+        if(auto o = SoftCasting::toFloat(other))
+            return this->val == o->val;
+        return false;
+    }
 
 };

@@ -7,24 +7,36 @@ namespace AST
 
     NumberPtr Logarithm::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
     {
-        if (values.size() != 2)
-            throw std::runtime_error("Malformed logarithm!");
+        if(values.size() != 2)
+            throw std::runtime_error("Malformed exponentiation!");
+
         
-        auto argument = Casting::toRational(values[0]);
-        auto base = Casting::toRational(values[1]);
-        
-        if (!argument || !base)
-            throw std::runtime_error("Irrational logs not implemented!");
+        InfFloat baseFloat, argFloat;
+        if (auto base = SoftCasting::toRational(values[0]))
+        {
+            baseFloat = base->getFraction().convert_to<InfFloat>();
+        }
+        else if(auto base = SoftCasting::toFloat(values[0]))
+        {
+            baseFloat = base->getFloat();
+        }
+        else
+            throw std::runtime_error("Invalid scalar base for logarithm!");
 
-        double argVal = static_cast<double>(argument->getNumerator()) / argument->getDenominator();
-        double baseVal = static_cast<double>(base->getNumerator()) / base->getDenominator();
+        if (auto arg = SoftCasting::toRational(values[1]))
+        {
+            argFloat = arg->getFraction().convert_to<InfFloat>();
+        }
+        else if(auto arg = SoftCasting::toFloat(values[1]))
+        {
+            argFloat = arg->getFloat();
+        }
+        else
+            throw std::runtime_error("Invalid scalar argument for logarithm!");
 
-        if (argVal <= 0 || baseVal <= 0)
-            throw std::runtime_error("Logarithm argument and base must be greater than 0.");
-        if (baseVal == 1.0)
-            throw std::runtime_error("Logarithm base cannot be 1.");
+        InfFloat finalResult = mp::log(argFloat) / mp::log(baseFloat);
 
-        return NodeFactory::makeNumber(std::log(argVal) / std::log(baseVal));
+        return NodeFactory::makeNumber(finalResult); 
     }
 
     NodePtr Logarithm::complexSimplify(OpPtr opNode) const
@@ -33,7 +45,7 @@ namespace AST
         if (args.size() != 2)
             throw std::runtime_error("Malformed logarithm!");
         
-        auto innerOp = Casting::toOperator(opNode->getArgument(0));
+        auto innerOp = SoftCasting::toOperator(opNode->getArgument(0));
 
         if(innerOp && innerOp->getName() == "^" && innerOp->getArgument(0)->identical(opNode->getArgument(1)))
             return innerOp->getArgument(1);
@@ -50,7 +62,7 @@ namespace AST
         NodePtr argument = args[0];
         NodePtr base = args[1];
 
-        auto innerOp = Casting::toOperator(argument);
+        auto innerOp = SoftCasting::toOperator(argument);
         if(!innerOp)
             return opNode->shared_from_this();
         
@@ -80,7 +92,7 @@ namespace AST
 
         NodePtr argument = args[0];
         NodePtr base = args[1];
-        auto innerOp = Casting::toOperator(argument);
+        auto innerOp = SoftCasting::toOperator(argument);
         
         // If the internal structures of the argument and base are identical, log_b(b) is exactly 1
         if (argument->identical(base)) {
@@ -98,7 +110,7 @@ namespace AST
                 return innerOp->getArgument(1); // log(x^b,x) = b
         }
 
-        if (auto num = Casting::toNumber(argument)) {
+        if (auto num = SoftCasting::toNumber(argument)) {
             if(num->getValue() == 1)
                 return NodeFactory::makeNumber(0);
         }
@@ -113,7 +125,7 @@ namespace AST
 
         bool natural = false;
 
-        if(NumberPtr num = Casting::toNumber(args[1]))
+        if(NumberPtr num = SoftCasting::toNumber(args[1]))
             if(num->getValue() == Config::E)
                 natural = true;
 

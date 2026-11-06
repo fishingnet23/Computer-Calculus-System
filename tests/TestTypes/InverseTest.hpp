@@ -14,7 +14,7 @@ class InverseTest : public Test
 
         if(expected == "NULL")
         {
-            auto rootOp = AST::Casting::toOperator(inputExpr.getRoot());
+            auto rootOp = AST::SoftCasting::toOperator(inputExpr.getRoot());
             if(!rootOp)
                 return {false,inputExpr.toString(),"Expected an operator at the root!"};
             auto inverseOp = rootOp->getDefinition()->buildInverseOf(rootOp);
@@ -27,7 +27,7 @@ class InverseTest : public Test
         AST::AlgebraExpression expectedExpr(expected);
         expectedExpr.cannonize(); // cannonize expected
 
-        auto rootOp = AST::Casting::toOperator(inputExpr.getRoot());
+        auto rootOp = AST::SoftCasting::toOperator(inputExpr.getRoot());
         if(!rootOp)
             return {false,inputExpr.toString(),"Expected an operator at the root!"};
         auto inverseOp = rootOp->getDefinition()->buildInverseOf(rootOp);

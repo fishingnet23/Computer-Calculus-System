@@ -27,11 +27,11 @@ NodePtr AlgebraExpression::findVariableNode(const std::string &variableName)
     if (!root)
         return nullptr;
 
-    auto sym = Casting::toSymbol(root);
+    auto sym = SoftCasting::toSymbol(root);
     if (sym && sym->getName() == variableName)
         return root;
 
-    auto op = Casting::toOperator(root);
+    auto op = SoftCasting::toOperator(root);
     if (op)
     {
         for (const auto &arg : op->getArguments())

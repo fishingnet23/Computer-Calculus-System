@@ -7,18 +7,36 @@ namespace AST
 
     NumberPtr Multiply::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
     {
-        RationalNode r(1,1);
+        bool allRational = true;
+        for (const auto& arg : values) {
+            if (!SoftCasting::toRational(arg)) {
+                allRational = false;
+                break;
+            }
+        }
+        if (allRational) {
+            InfRational r(1, 1);
+            for (const auto& arg : values) {
+                r *= SoftCasting::toRational(arg)->getFraction();
+            }
+            return NodeFactory::makeNumber(r);
+        }
+        
+        InfFloat f(1);
 
-        for(auto& arg:values)
-        {
-            if(auto rational = Casting::toRational(arg))
-                r= r * (*rational);
-            else
-                throw std::runtime_error("Irrational multiplication unsupported!");
-            
+        for (const auto& arg : values) {
+            if (auto rat = SoftCasting::toRational(arg)) {
+                f *= rat->getFraction().convert_to<InfFloat>();
+            } 
+            else if (auto f2 = SoftCasting::toFloat(arg)) {
+                f *= f2->getFloat();
+            } 
+            else {
+                f *= InfFloat(arg->getValue());
+            }
         }
 
-        return NodeFactory::makeNumber(r.getNumerator(),r.getDenominator());
+        return NodeFactory::makeNumber(f);
     }
     NodePtr Multiply::complexSimplify(OpPtr opNode) const
     {
@@ -28,31 +46,33 @@ namespace AST
         coeffMap.setConstant(1);
         for(const auto& node: oldArgs)
         {
-            if(const auto& number = Casting::toNumber(node))
+            if(const auto& number = SoftCasting::toNumber(node))
             {
+                if(number->getValue() == 0)
+                    return NodeFactory::makeNumber(0);
                 coeffMap.setConstant(coeffMap.getConstant()*number->getValue());
                 continue;
             }
-            double degree = 1;
-            if(const auto& symbol = Casting::toSymbol(node))
+            InfFloat degree(1);
+            if(const auto& symbol = SoftCasting::toSymbol(node))
             {
                 SymbolPtr final = symbol;
-                if(const auto& innerOp = Casting::toOperator(node))
+                if(const auto& innerOp = SoftCasting::toOperator(node))
                 {
                     auto& innerArgs = innerOp->getArguments();
                     if(innerOp->getName() == "^")
                     {    
                         // assume exponentiation is not malformed and that it is already canonicalized
-                        if(const auto& expNode = Casting::toNumber(innerArgs[1])) // check if the exponent is numeric 
+                        if(const auto& expNode = SoftCasting::toNumber(innerArgs[1])) // check if the exponent is numeric 
                         {
                             // strip it
                             degree = expNode->getValue();
-                            final = Casting::toSymbol(innerArgs[0]);
+                            final = SoftCasting::toSymbol(innerArgs[0]);
                         }
                     }
                     
                 }
-                coeffMap.insertOrAccumulate(final->getPostFix(),final,[degree](double& accumCoeff,double& accumDeg)
+                coeffMap.insertOrAccumulate(final->getPostFix(),final,[degree](InfFloat& accumCoeff,InfFloat& accumDeg)
                 {
                     accumDeg += degree; // (a^b)*(a^c) = a^(b+c) 
                 },1,degree);
@@ -90,14 +110,14 @@ namespace AST
     NodePtr Multiply::complexExpansion(OpPtr opNode) const
     {
 
-        // a(b*c) = a*b+a*c
+        // a(b+c) = a*b+a*c
         std::vector<std::vector<NodePtr>> currentCombinations = {{}};
 
         for(const auto& arg : opNode->getArguments())
         {
             std::vector<std::vector<NodePtr>> nextCombinations;
             
-            if(const auto& addOp = Casting::toOperator(arg); addOp && addOp->getName() == "+") // distribute over addition
+            if(const auto& addOp = SoftCasting::toOperator(arg); addOp && addOp->getName() == "+") // distribute over addition
             {
                 for(const auto& existingTerms : currentCombinations)
                 {
@@ -129,7 +149,8 @@ namespace AST
             }
             else
             {
-                sumArguments.push_back(NodeFactory::makeOperator("*", termGroup));
+                auto rawGroupNode = NodeFactory::makeOperator("*", termGroup);
+                sumArguments.push_back(rawGroupNode);
             }
         }
 
@@ -149,11 +170,11 @@ namespace AST
 
         std::vector<NodePtr> newArgs;
         newArgs.reserve(oldArgs.size());
-        double constantProduct = 1.0;
+        InfFloat constantProduct = 1.0;
 
         for(const auto& node: oldArgs)
         {
-            if(const auto& number = Casting::toNumber(node))
+            if(const auto& number = SoftCasting::toNumber(node))
             {
                 if(number->getValue() == 0)
                     return NodeFactory::makeNumber(0);
@@ -177,7 +198,7 @@ namespace AST
         return opNode;
     }
     std::string Multiply::toString(const std::vector<NodePtr> &args) const
-{
+    {
     if (args.empty()) 
         return "";
 
@@ -185,7 +206,7 @@ namespace AST
 
     auto precedence = getPrecedence();
     auto getWrappedString = [precedence](const NodePtr& node) {
-        auto op = Casting::toOperator(node);
+        auto op = SoftCasting::toOperator(node);
         if (op && op->getDefinition()->getPrecedence() < precedence) {
             return "(" + node->toString() + ")";
         }
@@ -196,10 +217,10 @@ namespace AST
 
     for (size_t i = 1; i < args.size(); i++)
     {
-        auto prevNumber = Casting::toNumber(args[i-1]);
-        auto currNumber = Casting::toNumber(args[i]);
-        auto currVar    = Casting::toVariable(args[i]);
-        auto currOp     = Casting::toOperator(args[i]);
+        auto prevNumber = SoftCasting::toNumber(args[i-1]);
+        auto currNumber = SoftCasting::toNumber(args[i]);
+        auto currVar    = SoftCasting::toVariable(args[i]);
+        auto currOp     = SoftCasting::toOperator(args[i]);
 
         std::string currStr = getWrappedString(args[i]);
 

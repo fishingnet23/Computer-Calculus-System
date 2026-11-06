@@ -11,7 +11,7 @@ NodePtr NumericLimit::complexLocalSimplify(OpPtr opNode) const
     // If the children have collapsed to all numbers
     size_t numbers = 0;
     for(const auto& arg:args)
-        if( const auto& numeric = Casting::toNumber(arg))
+        if( const auto& numeric = SoftCasting::toNumber(arg))
             numbers++;
     if(numbers == args.size())
         return opNode->evaluate(Environment());

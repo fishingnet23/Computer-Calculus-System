@@ -11,7 +11,7 @@ NodePtr Cos::complexLocalSimplify(OpPtr opNode) const
     auto& args = opNode->getArguments();
     
     // If the child has collapsed to a pure literal number
-    if (auto num = Casting::toNumber(args[0]))
+    if (auto num = SoftCasting::toNumber(args[0]))
     {
         return evaluate({num},Environment());
     }
@@ -27,13 +27,13 @@ NumberPtr Cos::evaluate(const std::vector<NumberPtr>& values, const Environment&
 {
     if(values.size() != 1)
         throw std::runtime_error("Malformed cos node!");
-    return NodeFactory::makeNumber(std::cos(values[0]->getValue()));
+    return NodeFactory::makeNumber(mp::cos(values[0]->getValue()));
 }
 
 NodePtr Cos::complexSimplify(OpPtr opNode) const
 {
     auto child = opNode->getArgument(0);
-    auto childOp = Casting::toOperator(child);
+    auto childOp = SoftCasting::toOperator(child);
     
     if (!childOp) return opNode;
 
@@ -41,7 +41,7 @@ NodePtr Cos::complexSimplify(OpPtr opNode) const
     if (childOp->getName() == "*")
     {
         auto coeff = childOp->getArgument(0);
-        if(auto numeric = Casting::toNumber(coeff))
+        if(auto numeric = SoftCasting::toNumber(coeff))
             if(numeric->getValue() < 0)
             {
                 auto positiveCoeff = NodeFactory::makeNumber(-numeric->getValue());

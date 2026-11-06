@@ -6,88 +6,104 @@
 
 namespace AST {
 
+// fix to massive bug that caused weak pointers to not get cleaned from the map
+template<typename NodeType, typename... Args>
+std::shared_ptr<const NodeType> makeTrackedNode(const NodeFactory::RegistryKey& key, Args&&... args) {
+    auto* rawPtr = new NodeType(std::forward<Args>(args)...);
 
-static RationalNode rationalApproximation(double val)
-{
-    double leftToApproximate = val;
-
-    long long olderNumerator = 0, previousNumerator = 1;
-    long long olderDenominator = 1, previousDenominator = 0;
-
-    RationalNode r;
-
-    while(true)
-    {
-        long long remainder = std::floor(leftToApproximate);
-        
-        long long numerator = remainder * previousNumerator + olderNumerator;
-        long long denominator = remainder * previousDenominator + olderDenominator;
-        
-        if(denominator > RationalNode::MAX_DENOMINATOR)
-            break;
-
-        r = RationalNode(numerator,denominator);
-        
-        if (std::abs(leftToApproximate - remainder) < Config::EPSILON){
-            break;
+    return std::shared_ptr<const NodeType>(rawPtr, [key](const NodeType* ptr) {
+        delete ptr;
+        auto& map = NodeFactory::getMap();
+        auto it = map.find(key);
+        if (it != map.end() && it->second.expired()) {
+            map.erase(it);
         }
-        leftToApproximate = 1.0/(leftToApproximate-remainder);
-
-        olderNumerator = previousNumerator;
-        previousNumerator = numerator;
-
-        olderDenominator = previousDenominator;
-        previousDenominator = denominator;
-
-       
-    }
-
-    return r;
+    });
 }
 
 NumberPtr NodeFactory::makeNumber(double val)
 {
-    RationalNode r = rationalApproximation(val);
-    return makeNumber(r.getNumerator(),r.getDenominator());
+    return makeNumber(InfRational(val));
 }
 
-NumberPtr NodeFactory::makeNumber(long long num, long long den)
+NumberPtr NodeFactory::makeNumber(const InfFloat &val) {
+    if (val == 0.0) {
+        return makeNumber(InfRational(0, 1));
+    }
+
+    try {
+        InfFloat rounded = mp::round(val);
+        if (mp::abs(val - rounded) < 1e-30) {
+            return makeNumber(InfRational(rounded.convert_to<mp::cpp_int>(), 1));
+        }
+
+        int exp;
+        InfFloat mantissa = mp::frexp(val, &exp);
+
+  
+        const int precision_bits = 128; 
+        mp::cpp_int scale_factor = mp::pow(mp::cpp_int(2), precision_bits);
+        
+        mp::cpp_int num = (mantissa * InfFloat(scale_factor)).convert_to<mp::cpp_int>();
+        mp::cpp_int den = scale_factor;
+
+        if (exp > 0) {
+            num <<= exp;
+        } else if (exp < 0) {
+            den <<= (-exp);
+        }
+
+        InfRational canonicalFraction(num, den); 
+        return makeNumber(canonicalFraction);
+    }
+    catch (...) {
+        // Fallback safety barrier for extreme corner cases or numeric overflows
+        throw std::runtime_error("CRITICAL: Failed to convert InfFloat to exact canonical rational representation.");
+    }
+}
+
+NumberPtr NodeFactory::makeNumber(const InfRational &fraction)
 {
-    RationalNode::reduceRational(num,den);
-    RegistryKey key{"RationalNode:" + std::to_string(num) + "/" + std::to_string(den)};
+    RegistryKey key(fraction);
     auto [it, inserted] = getMap().try_emplace(key, std::weak_ptr<const Node>{});
     
     if (!inserted) {
         if (auto cached = it->second.lock()) {
-            if(auto rat = Casting::toRational(cached))
-                return rat;
+            if(auto num = SoftCasting::toNumber(cached))
+                return num;
         }
     }
 
-    auto newNode = std::make_shared<const RationalNode>(num,den);
+    auto newNode = makeTrackedNode<RationalNode>(key, fraction);
     it->second = newNode;
 
     return newNode;
 }
 
-NumberPtr NodeFactory::makeNumberFromLiteral(const std::string &name)
+NumberPtr NodeFactory::makeNumber(long long num, long long den)
 {
-    return makeNumber(std::stod(name));
+    InfRational r(num,den);
+    return makeNumber(r);
+}
+
+NumberPtr NodeFactory::makeNumberFromLiteral(const std::string &literal)
+{
+    return makeNumber(InfRational(literal));
 }
 
 VariablePtr NodeFactory::makeVariable(const std::string &name)
 {
-    RegistryKey key{"VariableNode:" + name};
+    RegistryKey key(RegistryKey::NodeType::Variable, name);
     auto [it, inserted] = getMap().try_emplace(key, std::weak_ptr<const Node>{});
     
     if (!inserted) {
         if (auto cached = it->second.lock()) {
-            if(auto x = Casting::toVariable(cached))
+            if(auto x = SoftCasting::toVariable(cached))
                 return x;
         }
     }
 
-    auto newNode = std::make_shared<const VariableNode>(name);
+    auto newNode = makeTrackedNode<VariableNode>(key, name);
     it->second = newNode;
 
     return newNode;
@@ -103,17 +119,17 @@ OpPtr NodeFactory::makeOperator(const std::string &name, const std::vector<NodeP
     if (opDef->getRuleType() == "Fluff")
         return std::static_pointer_cast<SyntaxFluff>(opDef)->clean(children);
 
-    RegistryKey key{"OperatorNode:"+name, children};
+    RegistryKey key(name, children);
     auto [it, inserted] = getMap().try_emplace(key, std::weak_ptr<const Node>{});
     
     if (!inserted) {
         if (auto cached = it->second.lock()) {
-            if(auto op = Casting::toOperator(cached))
+            if(auto op = SoftCasting::toOperator(cached))
                 return op;
         }
     }
 
-    auto newNode = std::make_shared<const OperatorNode>(children, std::static_pointer_cast<const OpDefinition>(opDef));
+    auto newNode = makeTrackedNode<OperatorNode>(key, children, std::static_pointer_cast<const OpDefinition>(opDef));
     it->second = newNode;
 
     return newNode;
@@ -121,8 +137,7 @@ OpPtr NodeFactory::makeOperator(const std::string &name, const std::vector<NodeP
 
 NodePtr NodeFactory::substitute(NodePtr treeRoot, const std::map<std::string, NodePtr>&replacementMap)
 {
-
-    auto treeToTraverse = Casting::toOperator(treeRoot);
+    auto treeToTraverse = SoftCasting::toOperator(treeRoot);
     if(!treeToTraverse)
     {
         auto it = replacementMap.find(treeRoot->toString());
@@ -148,7 +163,7 @@ NodePtr NodeFactory::substitute(NodePtr treeRoot, const std::map<std::string, No
             continue;
         }
 
-        auto op = Casting::toOperator(arg);
+        auto op = SoftCasting::toOperator(arg);
         if (op)
         {
             NodePtr res = substitute(op, replacementMap); 

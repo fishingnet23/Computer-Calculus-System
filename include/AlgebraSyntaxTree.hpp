@@ -43,9 +43,9 @@ public:
 
     NumberPtr evaluate(const Environment& env) const
     {
-        if (auto symR = Casting::toSymbol(root))
+        if (auto symR = SoftCasting::toSymbol(root))
             return symR->evaluate(env);
-        else if(auto n = Casting::toNumber(root))
+        else if(auto n = SoftCasting::toNumber(root))
             return n;
         else
             throw std::runtime_error("Unevaluateable root!");
@@ -56,7 +56,7 @@ public:
         if(!root)
             return;
         
-        auto op = Casting::toOperator(root);
+        auto op = SoftCasting::toOperator(root);
         if(!op)
             return;
         NodePtr newRoot = OperatorNode::simplify(op);
@@ -67,7 +67,7 @@ public:
     {
         if(!root)
             return;
-        auto op = Casting::toOperator(root);
+        auto op = SoftCasting::toOperator(root);
         if(!op)
             return;
         NodePtr newRoot = OperatorNode::expand(op);
@@ -78,7 +78,7 @@ public:
     {
        if(!root)
             return;
-        auto op = Casting::toOperator(root);
+        auto op = SoftCasting::toOperator(root);
         if(!op)
             return;
         NodePtr newRoot = OperatorNode::unify(op);

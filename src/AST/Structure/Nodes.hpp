@@ -1,4 +1,5 @@
 #pragma once
+#include "../include/Config.hpp"
 #include <string>
 #include <iostream>
 #include <sstream>
@@ -9,6 +10,7 @@
 #include <memory>
 #include <algorithm>
 #include <numeric>
+
 namespace AST
 {
 
@@ -16,7 +18,7 @@ class Node;
 
 class NumberNode;
 class RationalNode;
-class DecimalNode;
+class FloatNode;
 
 class Symbol;
 class VariableNode;
@@ -28,6 +30,7 @@ using NodePtr = std::shared_ptr<const Node>;
 
 using NumberPtr = std::shared_ptr<const NumberNode>;
 using RationalPtr = std::shared_ptr<const RationalNode>;
+using FloatPtr = std::shared_ptr<const FloatNode>;
 
 using SymbolPtr = std::shared_ptr<const Symbol>;
 using VariablePtr = std::shared_ptr<const VariableNode>;
@@ -39,41 +42,30 @@ using WeakNodePtr = std::weak_ptr<const Node>;
 
 enum class NodeType
 {
-    Number,
+    Scalar,
     Variable,
     Operator
 };
 
 struct Environment
 {
-    std::map<std::string,double> map;
+    std::map<std::string, InfFloat> map; 
 
     explicit Environment(const std::vector<std::string>& tokens);
     Environment(){};
 
-    double& operator[](const std::string& str) {return map[str];}
-    double operator[](const std::string& str) const
+    InfFloat& operator[](const std::string& str) { return map[str]; }
+    
+    InfFloat operator[](const std::string& str) const
     {
         auto it = map.find(str);
-        return it!=map.end()? it->second: 0;    
+        return it != map.end() ? it->second : InfFloat(0);    
     }
 
-    const double* lookup(const std::string& str) const
+    const InfFloat* lookup(const std::string& str) const
     {
         auto it = map.find(str);
-        return it!=map.end()? &(it->second): nullptr;    
-    }
-
-    double* lookup(const std::string& str)
-    {
-        auto it = map.find(str);
-        return it!=map.end()? &(it->second): nullptr;    
-    }
-
-    void print() const
-    {
-        for(const auto& [k,v]: map)
-            std::cout << k << " = " << v << std::endl;
+        return it != map.end() ? &(it->second) : nullptr;    
     }
 };
 
@@ -121,7 +113,7 @@ public:
 };
 
 
-static std::string toString(double value);
+static std::string toString(InfFloat value);
 
 class NumberNode: public Node
 {
@@ -134,98 +126,140 @@ public:
     virtual RationalNode* asRational() {return nullptr;}
     virtual const RationalNode* asRational() const {return nullptr;}
 
-    virtual DecimalNode* asDecimal() {return nullptr;}
-    virtual const DecimalNode* asDecimal() const {return nullptr;}
+    virtual FloatNode* asFloat() {return nullptr;}
+    virtual const FloatNode* asFloat() const {return nullptr;}
     
-    virtual NodeType type() const override {return NodeType::Number;}
+    virtual NodeType type() const override {return NodeType::Scalar;}
     
     virtual const std::string toString() const = 0;
-    virtual double getValue()const = 0;
+    virtual InfFloat getValue()const = 0;
+
+    virtual int compare(const NumberPtr& other) const {
+        auto val1 = getValue();
+        auto val2 = other->getValue();
+        
+        if (val1 < val2) return -1;
+        if (val1 > val2) return 1;
+        return 0;
+    }
+
+
     virtual const std::string getPostFix() const override {return toString();}
     virtual const std::string getPreFix() const override {return toString();}    
 
-    virtual explicit operator double() const {return getValue();};
+    virtual explicit operator InfFloat() const {return getValue();};
 };
 class RationalNode: public NumberNode
 {
-    long long numerator;
-    long long denominator;
-public:
-    static long long constexpr MAX_DENOMINATOR = 1e12;
+    InfRational fraction;
 
-    RationalNode():numerator(1),denominator(1){}
-    explicit RationalNode(long long num, long long den)
-    {
-        reduceRational(num,den);
-        numerator = num;
-        denominator = den;
+    // display helper
+    std::string compressLargeInteger(const std::string& raw_str) const {
+        if (raw_str.length() > 12) {
+            std::stringstream compressed;
+            compressed << raw_str[0] << "." << raw_str.substr(1, 4);
+            
+            std::string sig_figs = compressed.str();
+            sig_figs.erase(sig_figs.find_last_not_of('0') + 1, std::string::npos);
+            if (sig_figs.back() == '.') {
+                sig_figs.pop_back();
+            }
+            
+            size_t exponent = raw_str.length() - 1;
+            return sig_figs + "...e+" + std::to_string(exponent);
+        }
+        return raw_str;
     }
-    RationalNode(long long n):numerator(n),denominator(1){}
-    virtual const std::string toString() const override;
+public:
+    RationalNode():fraction(0,1){}
+    explicit RationalNode(long long num, long long den):fraction(num,den){}
+    explicit RationalNode(const InfInt& num, const InfInt& den):fraction(num,den){}
+    RationalNode(long long n):fraction(n,1){}
+    RationalNode(const InfInt& n):fraction(n,1){}
+    RationalNode(const InfFloat& v):fraction(v.convert_to<InfRational>()){}
+    RationalNode(const InfRational& r):fraction(r){}
+    virtual const std::string toString() const override {
+        const auto& numerator = mp::numerator(fraction);
+        const auto& denominator = mp::denominator(fraction);
+
+        if (denominator == 1) {
+            return compressLargeInteger(numerator.str());
+        }
+        return compressLargeInteger(numerator.str()) + "/" + compressLargeInteger(denominator.str());
+    }
+
     virtual const std::string getPostFix() const override
     {
-        if(denominator != 1.0)
-            return "(" + std::to_string(numerator) +", " + std::to_string(denominator) + ", RationalNode)";
+        const auto& numerator = mp::numerator(fraction);
+        const auto& denominator = mp::denominator(fraction);
+        
+        std::string num_str = compressLargeInteger(numerator.str());
+        std::string den_str = compressLargeInteger(denominator.str());
+
+        if (denominator != 1)
+            return "(" + num_str + ", " + den_str + ", RationalNode)";
         else
-            return std::to_string(numerator);
-    }
-    virtual const std::string getPreFix() const override
-    {
-        if(denominator != 1.0)
-            return "RationalNode(" + std::to_string(numerator) +", " + std::to_string(denominator) + ")";
-        else
-            return std::to_string(numerator);
-    }
-    double getValue()const override
-    {
-        if(denominator == 0)
-            throw std::runtime_error("Division by zero error!");
-        return (double)numerator/(double)denominator;
+            return num_str;
     }
 
-    long long getNumerator() const {return numerator;}
-    long long getDenominator() const {return denominator;}
+    virtual const std::string getPreFix() const override
+    {
+        const auto& numerator = mp::numerator(fraction);
+        const auto& denominator = mp::denominator(fraction);
+
+        std::string num_str = compressLargeInteger(numerator.str());
+        std::string den_str = compressLargeInteger(denominator.str());
+
+        if (denominator != 1)
+            return "RationalNode(" + num_str + ", " + den_str + ")";
+        else
+            return num_str;
+    }
+
+    const InfInt& getNumerator() const {return mp::numerator(fraction);}
+    const InfInt& getDenominator() const {return mp::denominator(fraction);}
+
+    const InfRational& getFraction() const {return fraction;}
 
     virtual bool identical(const NodePtr other) const override;
 
+    virtual InfFloat getValue() const { return fraction.convert_to<InfFloat>();}
+
     virtual RationalNode* asRational() {return this;}
     virtual const RationalNode* asRational() const {return this;}
-    RationalNode operator +(const RationalNode& other)
-    {
-        return RationalNode(numerator*other.denominator + other.numerator*denominator,denominator*other.denominator);
-    }
-    RationalNode operator -(const RationalNode& other)
-    {
-        return *this + RationalNode(-other.numerator,other.denominator);
-    }
-    RationalNode operator *(const RationalNode& other)
-    {
-        return RationalNode(numerator*other.numerator,denominator*other.denominator);
-    }
-    RationalNode operator /(const RationalNode& other)
-    {
-        return RationalNode(numerator*other.denominator,denominator*other.numerator);
-    }
+};
 
-    static void reduceRational(long long& numerator, long long& denominator) {
-        if (denominator == 0) {
-            std::cerr << "Error: Division by zero\n";
-            return;
-        }
+class FloatNode: public NumberNode
+{
+    InfFloat val;
+public:
 
-        unsigned long long u_num = (numerator < 0) ? -static_cast<unsigned long long>(numerator) : static_cast<unsigned long long>(numerator);
-        unsigned long long u_den = (denominator < 0) ? -static_cast<unsigned long long>(denominator) : static_cast<unsigned long long>(denominator);
-
-        long long gcdVal = static_cast<long long>(std::gcd(u_num, u_den));
-
-        numerator /= gcdVal;
-        denominator /= gcdVal;
-
-        if (denominator < 0) {
-            numerator = -numerator;
-            denominator = -denominator;
-        }
+    FloatNode():val(0){}
+    explicit FloatNode(long long num):val(num){}
+    FloatNode(const InfRational& n) {
+        InfFloat num(mp::numerator(n).str());
+        InfFloat den(mp::denominator(n).str());
+        val = num / den;
     }
+    explicit FloatNode(const InfInt& num, const InfInt& den) {
+        InfFloat n(num.str());
+        InfFloat d(den.str());
+        val = n / d;
+    }
+    FloatNode(const InfInt& n):val(n.str()){}
+    FloatNode(const InfFloat& n):val(n){}
+
+    virtual const std::string toString() const override;
+    virtual const std::string getPostFix() const override{return val.str();}
+    virtual const std::string getPreFix() const override{return val.str();}
+    InfFloat getValue()const override{return val;}
+
+    const InfFloat& getFloat() const {return val;}
+
+    virtual bool identical(const NodePtr other) const override;
+
+    virtual FloatNode* asFloat() {return this;}
+    virtual const FloatNode* asFloat() const {return this;}
 };
 
 class Symbol : public Node
@@ -387,7 +421,7 @@ public:
 };
 
 
-static std::string toString(double value)
+static std::string toString(InfFloat value)
 {
     std::ostringstream out;
     out << std::setprecision(15) << std::fixed << value;
@@ -400,7 +434,7 @@ static std::string toString(double value)
     }
     return str;
 }
-class Casting
+class SoftCasting
 {
 public:
     static SymbolPtr toSymbol(const NodePtr node);
@@ -408,6 +442,9 @@ public:
 
     static RationalPtr toRational(const NodePtr node);
     static RationalPtr toRational(const NumberPtr node);
+
+    static FloatPtr toFloat(const NodePtr node);
+    static FloatPtr toFloat(const NumberPtr node);
 
     static VariablePtr toVariable(const SymbolPtr node);
     static VariablePtr toVariable(const NodePtr node);

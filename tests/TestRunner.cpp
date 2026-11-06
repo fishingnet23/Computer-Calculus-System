@@ -1,6 +1,8 @@
 #include <iostream>
 #include "TestTypes/CannonizeTest.hpp"
 #include "TestTypes/InverseTest.hpp"
+#include "TestTypes/SimplificationTest.hpp"
+#include "TestTypes/ExpansionTest.hpp"
 #include <sstream>
 
 
@@ -626,7 +628,6 @@ int main()
     testCannonizer();
     // testInverses();
     std::cout << "Thank you for testing the program!" << std::endl;
-
     return 0;
 }
 

@@ -117,13 +117,13 @@ public:
     struct SymbolData
     {
         SymbolPtr originalNode;
-        double coeff;
-        double degree;
+        InfFloat coeff = 0;
+        InfFloat degree = 0;
     };
 private:
     
     std::map<std::string, SymbolData> map; 
-    double constant = 0;
+    InfFloat constant = 0;
 public:
     
     SymbolDataAccumulator(){}
@@ -131,14 +131,14 @@ public:
     SymbolData* getSymbol(const std::string& symbolName);
     const SymbolData* getSymbol(const std::string& symbolName) const;
     
-    void insertOrAccumulate(const std::string& symbolName, SymbolPtr node, const std::function<void(double&,double&)>& transformation,double originalCoeff, double originalExp);
-    void set(const std::string& symbolName, double coeff, double degree);
+    void insertOrAccumulate(const std::string& symbolName, SymbolPtr node, std::function<void(InfFloat&,InfFloat&)> transformation,InfFloat originalCoeff, InfFloat originalExp);
+    void set(const std::string& symbolName, InfFloat coeff, InfFloat degree);
     const std::map<std::string, SymbolData>& get()const{return map;}
     
 
-    inline double getConstant() const { return constant; }
-    inline double& getConstantRef(){ return constant; }
-    inline void setConstant(double c) { constant = c; }
+    inline InfFloat getConstant() const { return constant; }
+    inline InfFloat& getConstantRef(){ return constant; }
+    inline void setConstant(InfFloat c) { constant = c; }
 };
 
 
