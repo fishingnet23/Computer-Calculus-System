@@ -56,9 +56,8 @@ std::vector<NodePtr> Parser::parseTokens() const
         }    
         else if(token.type == TokenType::VARIABLE)
         {
-            const InfFloat* constantValue = OpRegistry::getConstantValue(token.value);
-            if(constantValue)
-                output.push_back(NodeFactory::makeNumber(*constantValue));
+            if(Config::isConstant(token.value))
+                output.push_back(NodeFactory::makeNumberFromLiteral(token.value));
             else
                 output.push_back(NodeFactory::makeVariable(token.value));
         }
@@ -97,7 +96,7 @@ std::vector<NodePtr> Parser::parseTokens() const
             operators.pop_back();
 
             // if the brackets were sitting after an explicit function, like sin(x), it must be evaluated now
-            // this is to force f(x)^2 = (f(x))^2 and not f(x^2), which is actually desireable when f is "-", as in -(x)^2 = -(x^2)
+            // this is to force f(x)^2 = (f(x))^2 and not f(x^2), which is actually desireable when f is "-", as in -(x)^2 = -(x^2), a prefix operator
             if (!operators.empty() && operators.back().token.format == OpDefinition::Format::EXPLICIT_FUNCTION)
             {
                 finalizeOperator(output, operators);
@@ -180,6 +179,9 @@ NodePtr Parser::buildAST() const
 
     if(finalAST.size() != 1)
         throw std::runtime_error("Malformed Syntax Tree! Operations and arguments were entered too many, too little or wrongly. Ensure correct math syntax!");
+
+    if(auto op = SoftCasting::toOperator(finalAST[0]))
+        finalAST[0] = OperatorNode::unify(op);
     return finalAST[0];
 }
 

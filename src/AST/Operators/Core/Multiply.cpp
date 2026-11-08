@@ -5,109 +5,130 @@ namespace AST
 {
     Multiply::Multiply():OpDefinition({OpProperty::COMMUTATIVE,OpProperty::TRUE_ASSOCIATIVE}){}
 
-    NumberPtr Multiply::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
+    InfFloat Multiply::approximate(const std::vector<InfFloat>& values) const
     {
-        bool allRational = true;
-        for (const auto& arg : values) {
-            if (!SoftCasting::toRational(arg)) {
-                allRational = false;
-                break;
-            }
-        }
-        if (allRational) {
-            InfRational r(1, 1);
-            for (const auto& arg : values) {
-                r *= SoftCasting::toRational(arg)->getFraction();
-            }
-            return NodeFactory::makeNumber(r);
-        }
         
         InfFloat f(1);
 
         for (const auto& arg : values) {
-            if (auto rat = SoftCasting::toRational(arg)) {
-                f *= rat->getFraction().convert_to<InfFloat>();
-            } 
-            else if (auto f2 = SoftCasting::toFloat(arg)) {
-                f *= f2->getFloat();
-            } 
-            else {
-                f *= InfFloat(arg->getValue());
-            }
+            f*=arg;
         }
-
-        return NodeFactory::makeNumber(f);
+        return f;
     }
-    NodePtr Multiply::complexSimplify(OpPtr opNode) const
+    NodePtr Multiply::simplify(OpPtr opNode) const
     {
         auto& oldArgs = opNode->getArguments();
 
-        SymbolDataAccumulator coeffMap;
-        coeffMap.setConstant(1);
-        for(const auto& node: oldArgs)
+        constexpr int IDENTITY_ELEMENT = 1;
+        constexpr int ABSORBING_ELEMENT = 0;
+
+        std::map<NodePtr, NodePtr> degreeMap; 
+
+        for(auto arg : oldArgs)
         {
-            if(const auto& number = SoftCasting::toNumber(node))
+            if(auto rational = SoftCasting::toRational(arg)) {
+                if(rational->getFraction() == ABSORBING_ELEMENT)
+                    return NodeFactory::makeNumber(ABSORBING_ELEMENT);
+            }
+
+            NodePtr degree = NodeFactory::makeNumber(1);
+            NodePtr nodeToInsert = arg;
+
+            // look for exponents
+            if(auto op = SoftCasting::toOperator(arg))
             {
-                if(number->getValue() == 0)
-                    return NodeFactory::makeNumber(0);
-                coeffMap.setConstant(coeffMap.getConstant()*number->getValue());
+                if(op->getName() == "^")
+                {
+                    auto base = op->getArgument(0);
+                    auto exponent = op->getArgument(1);
+                    
+                        degree = exponent;
+                        nodeToInsert = base;            
+                }
+            }
+
+            // check if the base is a number
+            if(auto rational = SoftCasting::toRational(nodeToInsert))
+            {
+                auto frac = rational->getFraction();
+                auto absNumerator = mp::abs(numerator(frac));
+                auto absDenominator = mp::abs(denominator(frac));
+
+
+                // normalize all rationals into a standard form so symbolic comparrison can account for reciprocals
+                // 1/2 -> 2^-1, 3/5 -> (5/3)^-1, 5/3 -> 5/3 (since 5>3)
+                if(absDenominator > absNumerator)
+                {
+                    frac = InfRational(denominator(frac),numerator(frac));
+                    degree = NodeFactory::makeOperator("unary-",{degree});
+                    nodeToInsert = NodeFactory::makeNumber(frac);
+                }
+
+                // if(degree == 1 && map.find(nodeToInsert) == map.end()) 
+                // {
+                //     constant *= rational->getFraction();
+                //     continue; // Safe to consume globally
+                // }
+            }
+
+            // update the map
+            if(degreeMap.find(nodeToInsert) == degreeMap.end())
+                degreeMap[nodeToInsert] = degree;
+            else
+                degreeMap[nodeToInsert] = NodeFactory::makeOperator("+",{degreeMap[nodeToInsert], degree}); // delegate to addition 
+        }
+
+        // simplify the map
+        InfRational constant(1); // create constant accumulator
+        std::map<NodePtr, NodePtr> simplifiedMap;
+        for(auto& [node, degree] : degreeMap)
+        {
+            if(OpPtr degreeAddition = SoftCasting::toOperator(degree))
+            {
+                degree = OperatorNode::simplify(degreeAddition); // combine like exponents using addition directly
+            }
+            RationalPtr degreeRat = SoftCasting::toRational(degree);
+            if(degreeRat && degreeRat->getFraction() == 0) { 
                 continue;
             }
-            InfFloat degree(1);
-            if(const auto& symbol = SoftCasting::toSymbol(node))
-            {
-                SymbolPtr final = symbol;
-                if(const auto& innerOp = SoftCasting::toOperator(node))
-                {
-                    auto& innerArgs = innerOp->getArguments();
-                    if(innerOp->getName() == "^")
-                    {    
-                        // assume exponentiation is not malformed and that it is already canonicalized
-                        if(const auto& expNode = SoftCasting::toNumber(innerArgs[1])) // check if the exponent is numeric 
-                        {
-                            // strip it
-                            degree = expNode->getValue();
-                            final = SoftCasting::toSymbol(innerArgs[0]);
-                        }
-                    }
-                    
+            // consume non symbolic constants
+            else if(degreeRat && degreeRat->getFraction() == 1) {
+                if(auto rational = SoftCasting::toRational(node)) {
+                    constant *= rational->getFraction();
+                    continue;
                 }
-                coeffMap.insertOrAccumulate(final->getPostFix(),final,[degree](InfFloat& accumCoeff,InfFloat& accumDeg)
-                {
-                    accumDeg += degree; // (a^b)*(a^c) = a^(b+c) 
-                },1,degree);
             }
-            
-            // unknowns are ignored, though they shouldn't exist
-        }
-
-        std::vector<NodePtr> reconstructed;
-        reconstructed.reserve(coeffMap.get().size() + 1);
-        
-        if(coeffMap.getConstant()!= 1)
-            reconstructed.push_back(NodeFactory::makeNumber(coeffMap.getConstant()));
-        
-        for(const auto& [name,data] :coeffMap.get())
-        {
-            NodePtr nodeToMultiply;
-            if(data.degree == 0)
-                nodeToMultiply = NodeFactory::makeNumber(1); // placeholder, removed later
-            else if(data.degree == 1)
-                nodeToMultiply = data.originalNode;
-            else
+            else if(degreeRat && degreeRat->getFraction() == -1)
             {
-                nodeToMultiply = NodeFactory::makeOperator("^",{data.originalNode,NodeFactory::makeNumber(data.degree)});
+                if(auto rational = SoftCasting::toRational(node)) {
+                    constant *= InfRational(1,rational->getFraction());
+                    continue;
+                }
             }
-
-            reconstructed.push_back(nodeToMultiply);
+            simplifiedMap[node] = degree; 
         }
 
-        opNode = NodeFactory::getWithArguments(opNode,reconstructed); // wash away the old structure at this node
+        degreeMap.clear(); 
 
-        return complexLocalSimplify(opNode); // final collapse handling in case of a malformed multiplication / final simplification
+        // rebuild the simplified arguments
+        std::vector<NodePtr> reconstructed;
+        reconstructed.reserve(oldArgs.size());
+
+        if(constant != IDENTITY_ELEMENT)
+            reconstructed.push_back(NodeFactory::makeNumber(constant));
+        
+        for(auto& [node, degree] : simplifiedMap)
+        {
+            if(RationalPtr degreeRat = SoftCasting::toRational(degree); degreeRat && degreeRat->getFraction() == 1)
+                reconstructed.push_back(node);
+            else
+                reconstructed.push_back(NodeFactory::makeOperator("^", {node, degree}));
+        }        
+
+        opNode = NodeFactory::getWithArguments(opNode, reconstructed); 
+        return localCollapseStructure(opNode); 
     }
-
-    NodePtr Multiply::complexExpansion(OpPtr opNode) const
+    NodePtr Multiply::expand(OpPtr opNode) const
     {
 
         // a(b+c) = a*b+a*c
@@ -163,24 +184,24 @@ namespace AST
     }
 
 
-    NodePtr Multiply::complexLocalSimplify(OpPtr opNode) const
+    NodePtr Multiply::localCollapseStructure(OpPtr opNode) const
     {
 
         auto& oldArgs = opNode->getArguments();
 
         std::vector<NodePtr> newArgs;
         newArgs.reserve(oldArgs.size());
-        InfFloat constantProduct = 1.0;
+        InfRational constantProduct = 1.0;
 
         for(const auto& node: oldArgs)
         {
-            if(const auto& number = SoftCasting::toNumber(node))
+            if(const auto& number = SoftCasting::toRational(node))
             {
-                if(number->getValue() == 0)
+                if(number->getFraction() == 0)
                     return NodeFactory::makeNumber(0);
-                if(number->getValue() == 1)
+                if(number->getFraction() == 1)
                     continue;
-                constantProduct *= number->getValue();
+                constantProduct *= number->getFraction();
                 continue;
             }
 
@@ -197,8 +218,8 @@ namespace AST
         opNode = NodeFactory::getWithArguments(opNode,newArgs);
         return opNode;
     }
-    std::string Multiply::toString(const std::vector<NodePtr> &args) const
-    {
+std::string Multiply::toString(const std::vector<NodePtr> &args) const
+{
     if (args.empty()) 
         return "";
 
@@ -207,7 +228,8 @@ namespace AST
     auto precedence = getPrecedence();
     auto getWrappedString = [precedence](const NodePtr& node) {
         auto op = SoftCasting::toOperator(node);
-        if (op && op->getDefinition()->getPrecedence() < precedence) {
+        auto rat = SoftCasting::toRational(node);
+        if ((rat && denominator(rat->getFraction())!=1 )|| (op && op->getDefinition()->getPrecedence() < precedence)) {
             return "(" + node->toString() + ")";
         }
         return node->toString();
@@ -217,8 +239,8 @@ namespace AST
 
     for (size_t i = 1; i < args.size(); i++)
     {
-        auto prevNumber = SoftCasting::toNumber(args[i-1]);
-        auto currNumber = SoftCasting::toNumber(args[i]);
+        auto prevNumber = SoftCasting::toRawNumber(args[i-1]);
+        auto currNumber = SoftCasting::toRawNumber(args[i]);
         auto currVar    = SoftCasting::toVariable(args[i]);
         auto currOp     = SoftCasting::toOperator(args[i]);
 
@@ -227,7 +249,7 @@ namespace AST
         if (prevNumber && currVar) {
             str += currStr; 
         }
-        else if (prevNumber && currOp && (currStr.front() == '(' || currOp->getName() == "^")) {
+        else if (prevNumber && currOp && (currStr.front() == '(' || (currOp->getName() == "^" && SoftCasting::toSymbol(currOp->getArgument(0))))) {
             str += currStr;
         }
         else {

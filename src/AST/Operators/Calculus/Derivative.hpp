@@ -8,12 +8,11 @@ class Derivative : public OpDefinition
 public:
     Derivative();
 
-    virtual NumberPtr evaluate(const std::vector<NumberPtr>& values, const Environment& env) const override;
-
-    virtual NodePtr complexSimplify(OpPtr opNode) const override;
-    virtual NodePtr complexExpansion(OpPtr opNode) const override;
+    virtual NodePtr simplify(OpPtr opNode) const override;
+    virtual NodePtr expand(OpPtr opNode) const override;
     
-    virtual NodePtr complexLocalSimplify(OpPtr opNode) const override;
+    virtual NodePtr localCollapseStructure(OpPtr opNode) const override;
+    virtual InfFloat approximate(const std::vector<InfFloat>& operands) const {throw std::runtime_error(getName()+": Higher order operation cannot be approximated!");};
 
     virtual std::string toString(const std::vector<NodePtr>& args) const override;
     virtual std::string getName() const override {return "derivative";}

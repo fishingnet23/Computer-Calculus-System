@@ -40,9 +40,15 @@ class InverseTest : public Test
         auto inverseOfInverseOp = inverseOp->getDefinition()->buildInverseOf(inverseOp);
         if(!inverseOfInverseOp)
             return {false,inverseExpr.toString(),"Expected an inverse operator of the inverse, but none was found!"};
+            
         AST::AlgebraExpression inverseOfInverseExpr(inverseOfInverseOp);
         inverseOfInverseExpr.cannonize();
-        if(!inverseOfInverseExpr.equals(inputExpr))
+
+        // clone original and cannonize it for comparison
+        AST::AlgebraExpression inputExprCanonicalized = inputExpr; 
+        inputExprCanonicalized.cannonize();
+
+        if(!inverseOfInverseExpr.equals(inputExprCanonicalized))
             return {false,inverseOfInverseExpr.toString(),"Expected the inverse of the inverse to be the original expression, but it was not!"};
 
 

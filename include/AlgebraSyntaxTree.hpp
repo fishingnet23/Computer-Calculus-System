@@ -41,14 +41,37 @@ public:
         return "EMPTY TREE";
     }
 
-    NumberPtr evaluate(const Environment& env) const
+    AlgebraExpression substituteEnvironment(const Environment& env) const
     {
-        if (auto symR = SoftCasting::toSymbol(root))
-            return symR->evaluate(env);
-        else if(auto n = SoftCasting::toNumber(root))
-            return n;
+        NodePtr temp = NodeFactory::substitute(root,env);
+        AlgebraExpression tempExpr(temp);
+        tempExpr.cannonize();
+
+        int count = 0;
+        while(count < Config::MAX_FIXED_POINT_ITERATIONS)
+        {
+            tempExpr.setRoot(NodeFactory::substitute(tempExpr.getRoot(),env));
+            tempExpr.cannonize();
+            
+            if(tempExpr.getRoot() == temp)
+                break;
+            temp = tempExpr.getRoot();
+            count++;
+        }
+
+        return tempExpr;
+    }
+
+    InfFloat approximate() const
+    {
+        if(auto op = SoftCasting::toOperator(root))
+        {
+            return OperatorNode::approximate(op);
+        }
+        else if(auto n = SoftCasting::toRawNumber(root))
+            return n->getValue();
         else
-            throw std::runtime_error("Unevaluateable root!");
+            return 0; // default
     }
 
     void compress()
@@ -109,7 +132,7 @@ public:
     {
         if(!root || !other.root)
             return false;
-        return root->identical(other.root);
+        return root == other.root;
     }
 
     NodePtr findVariableNode(const std::string& variableName);

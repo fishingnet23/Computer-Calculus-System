@@ -18,10 +18,12 @@ class Node;
 
 class NumberNode;
 class RationalNode;
-class FloatNode;
+
 
 class Symbol;
 class VariableNode;
+
+class SymbolicConstant;
 
 class OperatorNode;
 class OpDefinition;
@@ -30,7 +32,6 @@ using NodePtr = std::shared_ptr<const Node>;
 
 using NumberPtr = std::shared_ptr<const NumberNode>;
 using RationalPtr = std::shared_ptr<const RationalNode>;
-using FloatPtr = std::shared_ptr<const FloatNode>;
 
 using SymbolPtr = std::shared_ptr<const Symbol>;
 using VariablePtr = std::shared_ptr<const VariableNode>;
@@ -44,31 +45,36 @@ enum class NodeType
 {
     Scalar,
     Variable,
+    RawSymbol,
     Operator
 };
 
 struct Environment
 {
-    std::map<std::string, InfFloat> map; 
+    std::map<NodePtr, NodePtr> map; 
 
+    // precondition: strings must be split such that:
+    // the expression to substitute is on the left, and the value it will be substituted for is on the right
+    // example: {"x","5","y","5x^2"} would yield a mapping of x=5 and y = 5x^2.
     explicit Environment(const std::vector<std::string>& tokens);
+    explicit Environment(const std::map<NodePtr, NodePtr>& mapping);
+
     Environment(){};
 
-    InfFloat& operator[](const std::string& str) { return map[str]; }
-    
-    InfFloat operator[](const std::string& str) const
-    {
-        auto it = map.find(str);
-        return it != map.end() ? it->second : InfFloat(0);    
-    }
+    NodePtr operator[](const NodePtr& node) const {return lookup(node); }
+    NodePtr operator[](const std::string& str) const {return lookup(str); }
 
-    const InfFloat* lookup(const std::string& str) const
+    NodePtr lookup(const NodePtr& node) const
     {
-        auto it = map.find(str);
-        return it != map.end() ? &(it->second) : nullptr;    
+        auto it = map.find(node);
+        return it != map.end() ? it->second : nullptr;    
     }
+    NodePtr lookup(const std::string& str) const;
+
+    void setMap(const std::map<NodePtr,NodePtr>& mapping);
+
 };
-
+// stateless
 class Node : public std::enable_shared_from_this<Node>
 {
 public:
@@ -101,8 +107,12 @@ public:
     virtual NumberNode* asNumber(){return nullptr;}
     virtual const NumberNode* asNumber() const {return nullptr;}
 
-    virtual bool identical(const NodePtr other) const = 0;
-
+    // helper method to check if a node is a child of another node
+    // only relevant for certain types of nodes like OperatorNodes, this is a hook
+    // all nodes "own" themselves by default
+    virtual bool owns(const NodePtr other) const {return this == other.get();}
+    // By default, only raw variables are substituteable
+    virtual bool isSubstitutable() const {return type() == NodeType::Variable;}
     static ConstPolynomial extractMetadata(NodePtr node);
 
     static int nodeRank(NodePtr node);
@@ -114,20 +124,20 @@ public:
 
 
 static std::string toString(InfFloat value);
-
-class NumberNode: public Node
+// stateless
+class NumberNode: public virtual Node
 {
 
 public:
-
+    ~NumberNode() = default;
     virtual NumberNode* asNumber() override{return this;}
     virtual const NumberNode* asNumber() const override{return this;}
 
     virtual RationalNode* asRational() {return nullptr;}
     virtual const RationalNode* asRational() const {return nullptr;}
 
-    virtual FloatNode* asFloat() {return nullptr;}
-    virtual const FloatNode* asFloat() const {return nullptr;}
+    virtual SymbolicConstant* asSymbolicConstant(){return nullptr;}
+    virtual const SymbolicConstant* asSymbolicConstant() const {return nullptr;}
     
     virtual NodeType type() const override {return NodeType::Scalar;}
     
@@ -149,10 +159,11 @@ public:
 
     virtual explicit operator InfFloat() const {return getValue();};
 };
+
 class RationalNode: public NumberNode
 {
     InfRational fraction;
-
+    
     // display helper
     std::string compressLargeInteger(const std::string& raw_str) const {
         if (raw_str.length() > 12) {
@@ -171,6 +182,8 @@ class RationalNode: public NumberNode
         return raw_str;
     }
 public:
+    ~RationalNode() = default;
+
     RationalNode():fraction(0,1){}
     explicit RationalNode(long long num, long long den):fraction(num,den){}
     explicit RationalNode(const InfInt& num, const InfInt& den):fraction(num,den){}
@@ -216,12 +229,10 @@ public:
             return num_str;
     }
 
-    const InfInt& getNumerator() const {return mp::numerator(fraction);}
-    const InfInt& getDenominator() const {return mp::denominator(fraction);}
+    const auto& getNumerator() const {return mp::numerator(fraction);}
+    const auto& getDenominator() const {return mp::denominator(fraction);}
 
     const InfRational& getFraction() const {return fraction;}
-
-    virtual bool identical(const NodePtr other) const override;
 
     virtual InfFloat getValue() const { return fraction.convert_to<InfFloat>();}
 
@@ -229,53 +240,22 @@ public:
     virtual const RationalNode* asRational() const {return this;}
 };
 
-class FloatNode: public NumberNode
-{
-    InfFloat val;
-public:
 
-    FloatNode():val(0){}
-    explicit FloatNode(long long num):val(num){}
-    FloatNode(const InfRational& n) {
-        InfFloat num(mp::numerator(n).str());
-        InfFloat den(mp::denominator(n).str());
-        val = num / den;
-    }
-    explicit FloatNode(const InfInt& num, const InfInt& den) {
-        InfFloat n(num.str());
-        InfFloat d(den.str());
-        val = n / d;
-    }
-    FloatNode(const InfInt& n):val(n.str()){}
-    FloatNode(const InfFloat& n):val(n){}
-
-    virtual const std::string toString() const override;
-    virtual const std::string getPostFix() const override{return val.str();}
-    virtual const std::string getPreFix() const override{return val.str();}
-    InfFloat getValue()const override{return val;}
-
-    const InfFloat& getFloat() const {return val;}
-
-    virtual bool identical(const NodePtr other) const override;
-
-    virtual FloatNode* asFloat() {return this;}
-    virtual const FloatNode* asFloat() const {return this;}
-};
-
-class Symbol : public Node
+class Symbol: public virtual Node
 {
 protected:
     std::string name;
     
 public:
-    virtual Symbol* asSymbol() override {return this;}
+    virtual Symbol* asSymbol()override {return this;}
     virtual const Symbol* asSymbol() const override {return this;}
 
     Symbol():name("NONE"){}
     explicit Symbol(const std::string& name):name(name){}
     explicit Symbol(const Symbol& other):name(other.name){}
-
-    const std::string& getName() const{return name;}
+    ~Symbol() = default;
+    const std::string& 
+    getName() const{return name;}
 
     void setName(const std::string& name){this->name = name;}
 
@@ -283,24 +263,15 @@ public:
     virtual const std::string getPostFix() const override {return toString();}
     virtual const std::string getPreFix() const override {return toString();}
 
-    virtual bool identical(const NodePtr other) const override{
-        const Symbol* otherSymbol = other->asSymbol();
-        if(!otherSymbol)
-            return false;
-        return name == otherSymbol->name;
-    }
-
     virtual VariableNode* asVariable(){return nullptr;}
     virtual const VariableNode* asVariable()const{return nullptr;}
 
     virtual OperatorNode* asOperator(){return nullptr;}
     virtual const OperatorNode* asOperator()const{return nullptr;}
 
-    virtual NumberPtr evaluate(const Environment& env) const = 0;
-
 };
 
-// proper variable 
+// proper variable, stateless 
 class VariableNode: public Symbol
 {
 public:
@@ -310,8 +281,6 @@ public:
     
     virtual const std::string toString() const override {return name;}
     
-    virtual NumberPtr evaluate(const Environment& env)const override;
-
     virtual VariableNode* asVariable() override {return this;}
     virtual const VariableNode* asVariable()const override{return this;}
 
@@ -320,7 +289,41 @@ public:
 
 };
 
+// useless symbols that can't actually be substituted for, like the imaginary identity, i
+class DummySymbol: public VariableNode
+{
+public:
+    DummySymbol():VariableNode(){}
+    explicit DummySymbol(const std::string&name):VariableNode(name){}
+    DummySymbol(const DummySymbol& other):VariableNode(other){}
 
+    virtual NodeType type() const override {return NodeType::RawSymbol;}
+    virtual bool isSubstitutable() const override{ return false;}
+};
+
+
+class SymbolicConstant : public Symbol, public NumberNode
+{
+    InfFloat val;
+public:
+    ~SymbolicConstant() = default;
+    SymbolicConstant():val(0){}
+    explicit SymbolicConstant(const std::string& name,const InfFloat& val):Symbol(name),val(val){}
+
+    InfFloat getValue()const override{return val;}
+
+    const InfFloat& getFloat() const {return val;}
+
+    virtual const std::string toString() const override {return name;}
+    virtual const std::string getPostFix() const override {return "("+name+",SymbolicConstant)";}
+    virtual const std::string getPreFix() const override {return "SymbolicConstant("+name+")";}   
+    virtual NodeType type() const override {return NodeType::Scalar;}
+
+    virtual SymbolicConstant* asSymbolicConstant() override {return this;}
+    virtual const SymbolicConstant* asSymbolicConstant() const override {return this;}
+
+
+};
 class OperatorNode : public Symbol
 {
 private:
@@ -360,20 +363,14 @@ public:
         this->arguments = args;
     }
     //canonicallize the operator's arguments for easy comparisons
-   
-    
 
-    virtual NumberPtr evaluate(const Environment& env) const override;
     virtual const std::string toString() const override;
 
     virtual OperatorNode* asOperator() override{return this;}
     virtual const OperatorNode* asOperator()const override{return this;}
     
     // sameOperator(OperatorNode a,OperatorNode b) if and only if its name is identical
-    virtual bool sameOperator(const NodePtr other) const 
-    {return Symbol::identical(other);}
-    // identical(OperatorNode a,OperatorNode b) if and only if sameOperator(a,b) and all arguments are identical
-    virtual bool identical(const NodePtr other) const override;
+    virtual bool sameOperator(const NodePtr other) const;
     
     virtual NodeType type() const override {return NodeType::Operator;}
 
@@ -412,12 +409,20 @@ public:
         str+= ")";
         return str;
     }
-   
+
+    virtual bool owns(const NodePtr other) const override;
+    virtual bool isSubstitutable() const override;
+
     static OpPtr unify(OpPtr opToSimplify);
     static NodePtr simplify(OpPtr opToSimplify);
     static NodePtr localSimplify(OpPtr opToSimplify);
     static NodePtr expand(OpPtr opToExpand);
     static NodePtr canonicalize(OpPtr opToSimplify);
+
+    // Preconditions: opToApproximate must not contain any unsubstituted variables
+    // It can only accept an operator with constant approximatables inside.
+    // Will substitute 0 if it encounters a variable node.
+    static InfFloat approximate(OpPtr opToApproximate);
 };
 
 
@@ -438,13 +443,12 @@ class SoftCasting
 {
 public:
     static SymbolPtr toSymbol(const NodePtr node);
+     // purposefully fails if the node is a SymbolicConstant
+    static NumberPtr toRawNumber(const NodePtr node);
     static NumberPtr toNumber(const NodePtr node);
 
     static RationalPtr toRational(const NodePtr node);
     static RationalPtr toRational(const NumberPtr node);
-
-    static FloatPtr toFloat(const NodePtr node);
-    static FloatPtr toFloat(const NumberPtr node);
 
     static VariablePtr toVariable(const SymbolPtr node);
     static VariablePtr toVariable(const NodePtr node);

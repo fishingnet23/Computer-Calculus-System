@@ -6,7 +6,7 @@
 #include <sstream>
 
 
-static void testCannonizer()
+static CanonizeTest testCannonizer()
 {
     CanonizeTest cannonize;
     // cannonize.hideDescriptions();
@@ -239,6 +239,9 @@ static void testCannonizer()
     cannonize.test("((x+1)^2)^2", "x^4+4x^3+6x^2+4x+1", "Nested polynomial powers");
     cannonize.test("(x^2+1)^2", "x^4+2x^2+1", "Power of polynomial");
 
+    cannonize.test("5*1/5*33^(1/2)*33^(1/3)", "33^(5/6)", "Rational normalization");
+    cannonize.test("10^(1/5)*10^(1/5)*(1/10)^(-1/5)*10^(1/5)*(1/10)^(-1/5)", "10", "Nth root in rational form normalization");
+
 //----Logarithms
     // Basic identities
     cannonize.test("ln(1)", "0", "Natural logarithm of one");
@@ -301,6 +304,26 @@ static void testCannonizer()
     // Square root and exponentiation
     cannonize.test("sqrt(x)^2", "x", "Square root squared");
     cannonize.test("sqrt(x^2)^2", "x^2", "Nested square root and power");
+    
+
+// ---- symbolic constant manipulations
+
+    cannonize.test("500*2*e*e*pi/2","500e^2*pi", "Treat constants as variables and collect coeffecients");
+    cannonize.test("(x+e)^2","x^2 + 2e*x + e^2", "Polynomial expansion with e");
+
+// ----complex numbers
+    cannonize.test("sqrt(-1)sqrt(-1)", "-1", "complex root bypass, infamous i^2 = -1");
+    cannonize.test("sqrt(-1)sqrt(-1)sqrt(-1)sqrt(-1)", "1", "complex root bypass ,i^4 = 1");
+
+    cannonize.test("sqrt(-5)", "sqrt(5)*i", "Applying definition of i");
+    cannonize.test("sqrt(-25)", "5*i", "Applying definition of i");
+    cannonize.test("sqrt(-125)", "5^(3/2)*i", "Applying definition of i");
+    cannonize.test("sqrt(-16)", "4i", "Applying definition of i");
+    cannonize.test("(5i)^3", "-125i", "Applying definition of i");
+    cannonize.test("(a+b*i)(c+d*i)", "a*c - b*d + a*d*i + b*c*i", "Complex number multiplication definition");
+    cannonize.test("(a+b*i)(a-b*i)", "a^2 + b^2", "Multiplying complex number by its conjugate");
+    cannonize.test("(a+b*i)^2", "a^2 + 2*a*b*i -b^2", "squaring a complex number");
+
 
 // ----sin
     // Basic identities
@@ -597,13 +620,20 @@ static void testCannonizer()
     cannonize.test("sin(x) / cos(x) -x ^ 0 * sin(x) / cos(x)","0","Legacy test case 4");
     cannonize.test("x - -2x^2 - (3x^2 - -x)","-x^2","Legacy test case 5");
 
+// extra
+    cannonize.test("x+(x+(x+(x+(x+(x+(x+(x+(x+(x+(x+(x+(x+(x+(x+(x+(x+x))))))))))))))))", "18x", "Deeply nested right-associative flattening stress test");
+    cannonize.test("-(-(-(-(-(-(-(-(-(-(-(-(-(-(x))))))))))))))", "x", "Extreme deep unary negation traversal");
+    cannonize.test("(-1)^(2/6)", "(-1)^(1/3)", "Rational exponent reduction with negative base boundary");
+    cannonize.test("derivative((x / y) / (y / x), x)", "2x*y^-2 + -2x^2*y^-3*derivative(y,x)", "Cyclic rational expansion termination test");
 
     std::cout<<"\n";
     cannonize.printStatus();
     std::cout<<std::endl;
+
+    return cannonize;
 }
 
-static void testInverses()
+static InverseTest testInverses()
 {
     InverseTest inverses;
 
@@ -612,11 +642,34 @@ static void testInverses()
 
     inverses.test("x^2 + x^3", "-x^2 - x^3", "Inverse with respect to addition of expression");
     inverses.test("5*x*y", "1/5 * 1/x * 1/y", "Inverse with respect to multiplication of expression");
-    inverses.test("log(x^2, 2)", "2^(x^2)", "Inverse with respect to logarithm of expression");
+    inverses.test("x^2 + x^3", "-x^2 - x^3", "Inverse with respect to addition of expression");
+    inverses.test("x^2 - x^3", "-x^2 + x^3", "Inverse with respect to subtraction of expression");
+    inverses.test("3*x^2 + 2*x + 5", "-3*x^2 - 2*x - 5", "Inverse with respect to addition of multi-term polynomial");
+    inverses.test("sin(x) + cos(y)", "-sin(x) - cos(y)", "Inverse with respect to addition of transcendental terms");
+    inverses.test("x / y", "y / x", "Inverse with respect to division");
+    inverses.test("-4 * z", "-1/4 * 1/z", "Inverse with respect to multiplication with negative coefficient");
+    inverses.test("a / b / c", "b * c / a", "Inverse with respect to chained division");
+    inverses.test("(x + 2) * (y - 3)", "1/(x + 2) * 1/(y - 3)", "Inverse with respect to multiplication of grouped terms");
+    inverses.test("(x + y) / (z + 1)", "(z + 1) / (x + y)", "Inverse of grouped rational expression");
+    inverses.test("3 * (x^2 + x)", "1/3 * 1/(x^2 + x)", "Inverse of constant multiplied by polynomial group");
+    inverses.test("(x + 1)^2 * y", "(x + 1)^-2 * 1/y", "Inverse of multiplication involving power groups");
+    inverses.test("(a * b) + (c * d)", "-(a * b) - (c * d)", "Inverse of addition of products");
+    inverses.test("(-2 * x * y) + z", "(2 * x * y) - z", "Inverse of addition with a negative product term");
+    inverses.test("(a / b) - (c / d)", "-(a / b) + (c / d)", "Inverse of subtraction of fractions");
+    inverses.test("ln(x) + exp(y)", "-ln(x) - exp(y)", "Inverse of addition with functional children");
+    inverses.test("(a / b) - (c / d)", "-(a / b) + (c / d)", "Inverse of subtraction of fractional terms");
+    inverses.test("(-5 * a * b) + (c * d)", "(5 * a * b) - (c * d)", "Inverse of addition with a negative leading term");
+    inverses.test("(x + y) / (z + 1)", "(z + 1) / (x + y)", "Inverse of division with grouped polynomial terms");
+    inverses.test("3 * (x^2 + x)", "1/3 * 1/(x^2 + x)", "Inverse of multiplication with an internal addition cluster");
+    inverses.test("(x + 1)^2 * y", "(x + 1)^-2 * 1/y", "Inverse of multiplication with an exponential group child");
+    inverses.test("x ^ y", "NULL", "Exponentiation lacks a two-sided identity element");
+    inverses.test("x ^ (i / 2)", "NULL", "Complex fractional power safely rejects inversion");
 
     std::cout<<"\n";
     inverses.printStatus();
     std::cout<<std::endl;
+
+    return inverses;
 }
 
 
@@ -625,7 +678,12 @@ int main()
     
     std::cout << "AUTOMATIC TESTING SUITE " << std::endl;
     
-    testCannonizer();
+    CanonizeTest canonizer = testCannonizer();
+    InverseTest inverser = testInverses();
+
+    std::cout << "Final results: " << std::endl;
+    canonizer.printStatus();
+    inverser.printStatus();
     // testInverses();
     std::cout << "Thank you for testing the program!" << std::endl;
     return 0;

@@ -5,41 +5,15 @@ namespace AST
 {
     Logarithm::Logarithm():OpDefinition({OpProperty::RIGHT_ASSOCIATIVE}){}
 
-    NumberPtr Logarithm::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
+    InfFloat Logarithm::approximate(const std::vector<InfFloat> &operands) const
     {
-        if(values.size() != 2)
-            throw std::runtime_error("Malformed exponentiation!");
+        if(operands.size()!=2)
+            throw std::runtime_error("Malformed logarithm!");
 
-        
-        InfFloat baseFloat, argFloat;
-        if (auto base = SoftCasting::toRational(values[0]))
-        {
-            baseFloat = base->getFraction().convert_to<InfFloat>();
-        }
-        else if(auto base = SoftCasting::toFloat(values[0]))
-        {
-            baseFloat = base->getFloat();
-        }
-        else
-            throw std::runtime_error("Invalid scalar base for logarithm!");
-
-        if (auto arg = SoftCasting::toRational(values[1]))
-        {
-            argFloat = arg->getFraction().convert_to<InfFloat>();
-        }
-        else if(auto arg = SoftCasting::toFloat(values[1]))
-        {
-            argFloat = arg->getFloat();
-        }
-        else
-            throw std::runtime_error("Invalid scalar argument for logarithm!");
-
-        InfFloat finalResult = mp::log(argFloat) / mp::log(baseFloat);
-
-        return NodeFactory::makeNumber(finalResult); 
+        return mp::log(operands[0]) / mp::log(operands[1]);
     }
 
-    NodePtr Logarithm::complexSimplify(OpPtr opNode) const
+    NodePtr Logarithm::simplify(OpPtr opNode) const
     {
         const auto& args = opNode->getArguments();
         if (args.size() != 2)
@@ -47,13 +21,13 @@ namespace AST
         
         auto innerOp = SoftCasting::toOperator(opNode->getArgument(0));
 
-        if(innerOp && innerOp->getName() == "^" && innerOp->getArgument(0)->identical(opNode->getArgument(1)))
+        if(innerOp && innerOp->getName() == "^" && innerOp->getArgument(0) == (opNode->getArgument(1)))
             return innerOp->getArgument(1);
         
         return opNode->shared_from_this(); 
     }
 
-    NodePtr Logarithm::complexExpansion(OpPtr opNode) const
+    NodePtr Logarithm::expand(OpPtr opNode) const
     {
         auto& args = opNode->getArguments();
         if (args.size() != 2)
@@ -84,7 +58,7 @@ namespace AST
     }
 
 
-    NodePtr Logarithm::complexLocalSimplify(OpPtr opNode) const
+    NodePtr Logarithm::localCollapseStructure(OpPtr opNode) const
     {
         auto& args = opNode->getArguments();
         if (args.size() != 2)
@@ -95,7 +69,7 @@ namespace AST
         auto innerOp = SoftCasting::toOperator(argument);
         
         // If the internal structures of the argument and base are identical, log_b(b) is exactly 1
-        if (argument->identical(base)) {
+        if (argument == base) {
             return NodeFactory::makeNumber(1);
         }
 
@@ -106,11 +80,11 @@ namespace AST
       
         if(innerOp && innerOp->getName() == "^")
         {
-            if(innerOp->getArgument(0)->identical(base))
+            if(innerOp->getArgument(0) == base)
                 return innerOp->getArgument(1); // log(x^b,x) = b
         }
 
-        if (auto num = SoftCasting::toNumber(argument)) {
+        if (auto num = SoftCasting::toRawNumber(argument)) {
             if(num->getValue() == 1)
                 return NodeFactory::makeNumber(0);
         }
@@ -126,27 +100,13 @@ namespace AST
         bool natural = false;
 
         if(NumberPtr num = SoftCasting::toNumber(args[1]))
-            if(num->getValue() == Config::E)
-                natural = true;
+            if(SymbolPtr sym = SoftCasting::toSymbol(args[1]))
+                if(sym->getName() == "e")
+                    natural = true;
 
         if(natural)
             return "ln("+args[0]->toString()+")";
         else
             return "log(" + args[0]->toString() +"," + args[1]->toString() + ")";
-    }
-
-    OpPtr Logarithm::buildInverseOf(OpPtr opToInvert) const
-    {
-        if(opToInvert->getDefinition()->getName() != getName())
-            return nullptr; // not the same operator
-
-        auto& args = opToInvert->getArguments();
-        if(args.size() != 2)
-            return nullptr; // malformed operator
-
-        NodePtr argument = args[0];
-        NodePtr base = args[1];
-
-        return NodeFactory::makeOperator("^",{base,argument}); // inverse of log_a(b) is a^b
     }
 }

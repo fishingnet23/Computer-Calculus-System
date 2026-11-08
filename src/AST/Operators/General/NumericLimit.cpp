@@ -4,7 +4,7 @@
 namespace AST
 {
 
-NodePtr NumericLimit::complexLocalSimplify(OpPtr opNode) const
+NodePtr NumericLimit::localCollapseStructure(OpPtr opNode) const
 {
     const auto& args = opNode->getArguments();
     
@@ -14,8 +14,21 @@ NodePtr NumericLimit::complexLocalSimplify(OpPtr opNode) const
         if( const auto& numeric = SoftCasting::toNumber(arg))
             numbers++;
     if(numbers == args.size())
-        return opNode->evaluate(Environment());
+    {
+        NumberPtr newVal = SoftCasting::toNumber(args[0]);
+        for(const auto& val:args)
+            newVal = evaluationFn(newVal,SoftCasting::toNumber(val)); //explicitly safe 
+        return newVal;
+    }
     return opNode;
+}
+
+InfFloat NumericLimit::approximate(const std::vector<InfFloat> &operands) const
+{
+    auto newVal = operands[0];
+    for(const auto& val:operands)
+        newVal = approximationFn(newVal,val); //explicitly safe 
+    return newVal;
 }
 
 std::string NumericLimit::toString(const std::vector<NodePtr> &args) const
@@ -31,23 +44,12 @@ std::string NumericLimit::toString(const std::vector<NodePtr> &args) const
     return str + ")";
 }
 
-NumberPtr NumericLimit::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
-{
-    if(values.size() < 2)
-        throw std::runtime_error("Malformed "+getName() +"! Can't evaluate!");
-
-    NumberPtr newVal = values[0];
-    for(const auto& val:values)
-        newVal = evaluationFn(newVal,val);
-    return newVal;
-}
-
-NodePtr NumericLimit::complexSimplify(OpPtr opNode) const
+NodePtr NumericLimit::simplify(OpPtr opNode) const
 {
     return opNode->shared_from_this();
 }
 
-NodePtr NumericLimit::complexExpansion(OpPtr opNode) const
+NodePtr NumericLimit::expand(OpPtr opNode) const
 {
     return opNode->shared_from_this();
 }

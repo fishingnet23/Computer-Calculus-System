@@ -5,45 +5,40 @@
 namespace AST
 {
 
-
-Derivative::Derivative():OpDefinition({OpProperty::RIGHT_ASSOCIATIVE}){}
-
-NumberPtr AST::Derivative::evaluate(const std::vector<NumberPtr> &values, const Environment& env) const
+static void retrieveArguments(const OpPtr& derivative ,OpPtr& outFunction, VariablePtr& outVariable)
 {
-    throw std::runtime_error("Higher order operations cannot be evaluated directly, without substitution!");
+    const auto& arguments = derivative->getArguments();
+    if(arguments.size() != 2)
+        throw std::runtime_error("Malformed differentiation! Cannot differentiate without both an operand and a proper variable to differentiate with respect to!");
+
+    outFunction = SoftCasting::toOperator(arguments[0]);
+    outVariable = SoftCasting::toVariable(arguments[1]);
+
 }
 
+Derivative::Derivative():OpDefinition({OpProperty::RIGHT_ASSOCIATIVE, OpProperty::FUNCTIONAL_MAPPING}){}
 
-
-
-NodePtr AST::Derivative::complexSimplify(OpPtr opNode) const
+NodePtr AST::Derivative::simplify(OpPtr opNode) const
 {
     auto& arguments = opNode->getArguments();
 
-    if(arguments.size() != 2)
-        throw std::runtime_error("Malformed differentiation! Cannot differentiate without both an operand and a variable to differentiate with respect to!");
-
-    auto function = arguments[0];
-    auto withRespectTo = SoftCasting::toVariable(arguments[1]);
-
-    if(!withRespectTo) // the operator is malformed, the engine will not deal with derivatives with respect to functions
-        return opNode;
+    OpPtr function;
+    VariablePtr withRespectTo;
+    retrieveArguments(opNode,function,withRespectTo);
 
 
     return opNode;
 }
 
-NodePtr AST::Derivative::complexExpansion(OpPtr opNode) const
+NodePtr AST::Derivative::expand(OpPtr opNode) const
 {
     auto& arguments = opNode->getArguments();
 
-    if(arguments.size() != 2)
-        throw std::runtime_error("Malformed differentiation! Cannot differentiate without both an operand and a variable to differentiate with respect to!");
+    OpPtr function;
+    VariablePtr withRespectTo;
+    retrieveArguments(opNode,function,withRespectTo);
 
-    auto function = SoftCasting::toOperator(arguments[0]);
-    auto withRespectTo = SoftCasting::toVariable(arguments[1]);
-
-    if(!function || !withRespectTo) // there is nothing to expand, or the operator is just malformed
+    if(!function || !withRespectTo || withRespectTo->type() != NodeType::Variable) // there is nothing to expand, or the operator is just malformed
         return opNode;
 
     if(function->getName() == "+") // first property of linearity, d/dx(u+w) = d/dx(x) + d/dx(y)
@@ -160,7 +155,7 @@ NodePtr AST::Derivative::complexExpansion(OpPtr opNode) const
     return opNode; // fallback
 }
 
-NodePtr AST::Derivative::complexLocalSimplify(OpPtr opNode) const
+NodePtr AST::Derivative::localCollapseStructure(OpPtr opNode) const
 {
     auto& arguments = opNode->getArguments();
 
@@ -172,13 +167,15 @@ NodePtr AST::Derivative::complexLocalSimplify(OpPtr opNode) const
 
     if(!withRespectTo)
         throw std::runtime_error("Malformed differentiation! Cannot differentiate to a non variable! (Does not support differentiating with respect to functions)");
+    auto constant = SoftCasting::toNumber(function);
+    auto dummySymbol = SoftCasting::toSymbol(function);
 
-    if(auto constant = SoftCasting::toNumber(function))
-        return NodeFactory::makeNumber(0); // d/dx(c) = 0, for all c which are real numbers
+    if( constant || (dummySymbol && dummySymbol->getName() == "i")) // i is a hidden constant
+        return NodeFactory::makeNumber(0); // d/dx(c) = 0, for all c which are complex numbers
     
     if(auto variable = SoftCasting::toVariable(function)) // d/dx(x) = 1, for all x
     {
-        if(variable->identical(withRespectTo))
+        if(variable == withRespectTo)
             return NodeFactory::makeNumber(1);
     }
 

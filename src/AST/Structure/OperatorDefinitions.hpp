@@ -72,18 +72,18 @@ public:
     OpDefinition(const OpDefinition& other):SyntaxRule(other){}
         
     virtual std::shared_ptr<OpDefinition> clone() const = 0;
-
-    virtual NumberPtr evaluate(const std::vector<NumberPtr>& values, const Environment& env)const = 0;
-    virtual NumberPtr evaluate(const std::vector<NumberPtr>& values) const {return evaluate(values,Environment());}
     
     // simplification rules. As a precondition, the inner arguments must already be simplified. 
-    virtual NodePtr complexSimplify(OpPtr opNode) const = 0;
+    virtual NodePtr simplify(OpPtr opNode) const = 0;
     // expansion rules. As a precondition, the inner arguments must already be expanded.
-    virtual NodePtr complexExpansion(OpPtr opNode) const = 0;
+    virtual NodePtr expand(OpPtr opNode) const = 0;
 
     // local simplification rules. Does not require fully simplified arguments.
     // this is where structural collapse happens. (Mostly)
-    virtual NodePtr complexLocalSimplify(OpPtr opNode) const = 0;
+    virtual NodePtr localCollapseStructure(OpPtr opNode) const = 0;
+
+    // Approximation rules that don't have to preserve precision.
+    virtual InfFloat approximate(const std::vector<InfFloat>& operands) const = 0;
 
     // builds the inverse of the inputted operator, if possible.
     // If the OpPtr is not invertible, it returns a nullptr.
@@ -117,13 +117,13 @@ public:
     struct SymbolData
     {
         SymbolPtr originalNode;
-        InfFloat coeff = 0;
-        InfFloat degree = 0;
+        InfRational coeff = 0;
+        InfRational degree = 0;
     };
 private:
     
     std::map<std::string, SymbolData> map; 
-    InfFloat constant = 0;
+    InfRational constant = 0;
 public:
     
     SymbolDataAccumulator(){}
@@ -131,14 +131,14 @@ public:
     SymbolData* getSymbol(const std::string& symbolName);
     const SymbolData* getSymbol(const std::string& symbolName) const;
     
-    void insertOrAccumulate(const std::string& symbolName, SymbolPtr node, std::function<void(InfFloat&,InfFloat&)> transformation,InfFloat originalCoeff, InfFloat originalExp);
-    void set(const std::string& symbolName, InfFloat coeff, InfFloat degree);
+    void insertOrAccumulate(const std::string& symbolName, SymbolPtr node, std::function<void(InfRational&,InfRational&)> transformation,InfRational originalCoeff, InfRational originalExp);
+    void set(const std::string& symbolName, InfRational coeff, InfRational degree);
     const std::map<std::string, SymbolData>& get()const{return map;}
     
 
-    inline InfFloat getConstant() const { return constant; }
-    inline InfFloat& getConstantRef(){ return constant; }
-    inline void setConstant(InfFloat c) { constant = c; }
+    inline InfRational getConstant() const { return constant; }
+    inline InfRational& getConstantRef(){ return constant; }
+    inline void setConstant(InfRational c) { constant = c; }
 };
 
 

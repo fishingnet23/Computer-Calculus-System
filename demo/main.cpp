@@ -68,10 +68,12 @@ void keepEvaluating(const AST::AlgebraExpression& tree)
                 tokens.push_back(stripWhitespace(token));
             }
         }
-        AST::Environment env(tokens);        
         try
         {
-            std::cout << tree.toString() << "=> " << tree.evaluate(env)->toString() << std::endl;
+            AST::Environment env(tokens);
+            auto subbed = tree.substituteEnvironment(env);
+            std::cout << tree.toString() << "=> " << subbed.toString() << std::endl;
+            std::cout << "Floating Point: " << subbed.approximate().str() << std::endl;
         }
         catch(const std::exception& e)
         {

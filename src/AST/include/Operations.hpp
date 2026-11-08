@@ -44,24 +44,7 @@ namespace AST
     
     public:
         static const auto& getMap() { return getMutableMap(); }
-        static const auto& getFluffyMap() { return getMutableFluffyMap(); }
-        static const auto& getConstantMap() {
-            static std::map<std::string, InfFloat> constants = {
-                {"pi", Config::PI},
-                {"PI", Config::PI},
-                {"e", Config::E}
-            };
-
-            return constants;
-        }
-        static const InfFloat* getConstantValue(const std::string& name) {
-            const auto& constants = getConstantMap();
-            auto it = constants.find(name);
-            if (it != constants.end()) {
-                return &(it->second);
-            }
-            return nullptr;
-        }
+        static const auto& getFluffyMap() { return getMutableFluffyMap();}
 
         static void initialize();
 

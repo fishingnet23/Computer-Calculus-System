@@ -5,124 +5,136 @@ namespace AST
 {
     Add::Add():OpDefinition({OpProperty::COMMUTATIVE,OpProperty::TRUE_ASSOCIATIVE}){}
 
-    NumberPtr Add::evaluate(const std::vector<NumberPtr>& values, const Environment& env) const
+    InfFloat Add::approximate(const std::vector<InfFloat>& values) const
     {
-        bool allRational = true;
-        for (const auto& arg : values) {
-            if (!SoftCasting::toRational(arg)) {
-                allRational = false;
-                break;
-            }
-        }
-        if (allRational) {
-            InfRational r(0, 1);
-            for (const auto& arg : values) {
-                r += SoftCasting::toRational(arg)->getFraction();
-            }
-            return NodeFactory::makeNumber(r);
-        }
         
         InfFloat f(0);
 
         for (const auto& arg : values) {
-            if (auto rat = SoftCasting::toRational(arg)) {
-                f += rat->getFraction().convert_to<InfFloat>();
-            } 
-            else if (auto f2 = SoftCasting::toFloat(arg)) {
-                f += f2->getFloat();
-            } 
-            else {
-                f += InfFloat(arg->getValue());
-            }
+            f+=arg;
         }
-
-        return NodeFactory::makeNumber(f);
+        return f;
     }
 
-    NodePtr Add::complexSimplify(OpPtr opNode) const
+    NodePtr Add::simplify(OpPtr opNode) const
     {
         auto& oldArgs = opNode->getArguments();
 
-        SymbolDataAccumulator coeffMap;
-        coeffMap.setConstant(0);
-        for(const auto& node: oldArgs)
+        constexpr int IDENTITY_ELEMENT = 0;
+
+        std::map<std::pair<NodePtr,InfRational>, InfRational> map; 
+        InfRational constant(IDENTITY_ELEMENT); // default value
+
+        for(auto arg : oldArgs)
         {
-            if(const auto& number = SoftCasting::toNumber(node))
-            {
-                coeffMap.setConstant(coeffMap.getConstant()+number->getValue());
+            InfRational coeff(1); 
+            InfRational degree(1);
+            NodePtr nodeToInsert = arg;
+
+            if(auto rational = SoftCasting::toRational(arg)) {
+                constant += rational->getFraction();
                 continue;
             }
-            InfFloat coeff(1);
-            if(const auto& symbol = SoftCasting::toSymbol(node))
-            {
-                SymbolPtr final = symbol;
-                if(const auto& innerOp = SoftCasting::toOperator(node))
-                {
-                    if(innerOp->getName() == "*")
-                    {
-                        auto& innerArgs = innerOp->getArguments();
-                        // assume multiplication is not malformed and that it is already canonicalized
-                        if(const auto& coeffNode = SoftCasting::toNumber(innerArgs[0]))
-                        {
-                            coeff = coeffNode->getValue();
-                            final = SoftCasting::toSymbol(innerOp->remakeWithoutArgument(0));
-                        }
+
+            // extract coefficient
+            if(auto op = SoftCasting::toOperator(nodeToInsert); op && op->getName() == "*") {
+                if(auto coeffNode = SoftCasting::toRational(op->getArgument(0))) {
+                    coeff = coeffNode->getFraction();
+                    nodeToInsert = op->remakeWithoutArgument(0);
+                    
+                    // unwrap if it's one node left
+                    if(auto checkOp = SoftCasting::toOperator(nodeToInsert); checkOp && checkOp->getArguments().size() == 1) {
+                        nodeToInsert = checkOp->getArgument(0);
                     }
                 }
-                coeffMap.insertOrAccumulate(final->getPostFix(),final,[coeff](InfFloat& accumCoeff,InfFloat& accumDeg)
-                {
-                    accumCoeff+=coeff;
-                },coeff,1);
             }
-            
-            // unknowns are ignored, though they shouldn't exist
+
+            // extract degree (after coeffecient)
+            if(auto op = SoftCasting::toOperator(nodeToInsert); op && op->getName() == "^") {
+                auto exponent = op->getArgument(1);
+                if(auto expRat = SoftCasting::toRational(exponent)) {
+                    degree = expRat->getFraction();
+                    nodeToInsert = op->getArgument(0); // strip to core base
+                }
+            }
+
+            // now the node is in polynomial form, store by degree -> coeff mapping
+            std::pair nodeAndDegree = {nodeToInsert, degree};
+            map[nodeAndDegree] += coeff; 
         }
 
-        std::vector<NodePtr> reconstructed;
-        reconstructed.reserve(coeffMap.get().size() + 1);
         
-        if(coeffMap.getConstant()!= 0)
-            reconstructed.push_back(NodeFactory::makeNumber(coeffMap.getConstant()));
-        
-        for(const auto& [name,data] :coeffMap.get())
+
+        // simplify the map
+        std::map<std::pair<NodePtr,InfRational>, InfRational> simplifiedMap; 
+        for(auto& [nodeAndDegree,coeff]:map)
         {
-            if(data.coeff == 0)
+            const auto& node = nodeAndDegree.first;
+            const auto& degree = nodeAndDegree.second;
+
+            if(coeff == 0) // 0x^n -> 0
                 continue;
-
-            NodePtr nodeToAdd;
-            if(data.coeff == 1)
-                nodeToAdd = data.originalNode;
-            else
-            {
-                nodeToAdd = NodeFactory::makeOperator("*",{NodeFactory::makeNumber(data.coeff),data.originalNode});
+            else if(degree == 0) { //n*x^0 -> n
+                constant+=coeff;
+                continue;
             }
-
-            reconstructed.push_back(nodeToAdd);
+            else if(degree == 1)
+                if(auto rational = SoftCasting::toRational(node)) {
+                    constant += coeff * rational->getFraction();
+                    continue;
+                }
+            simplifiedMap[nodeAndDegree] = coeff; // copy nontrivial information
         }
+
+        map.clear(); // clear the outdated map
+
+        // rebuild the simplified arguments using the cached information
+        std::vector<NodePtr> reconstructed;
+        reconstructed.reserve(oldArgs.size());
+
+        // if the constant will actually matter, insert it first
+        if(constant != IDENTITY_ELEMENT)
+            reconstructed.push_back(NodeFactory::makeNumber(constant));
+        
+        for(auto& [nodeAndDegree,coeff]:simplifiedMap)
+        {
+            const auto& node = nodeAndDegree.first;
+            const auto& degree = nodeAndDegree.second;
+
+            if(coeff == 1 && degree == 1)
+                reconstructed.push_back(node);
+            else if(coeff == 1 && degree != 1)
+                reconstructed.push_back(NodeFactory::makeOperator("^",{node, NodeFactory::makeNumber(degree)}));
+            else if(coeff != 1 && degree == 1)
+                reconstructed.push_back(NodeFactory::makeOperator("*",{NodeFactory::makeNumber(coeff), node}));
+            else
+                reconstructed.push_back(NodeFactory::makeOperator("*",{NodeFactory::makeNumber(coeff),NodeFactory::makeOperator("^",{node, NodeFactory::makeNumber(degree)})}));
+        }        
 
         opNode = NodeFactory::getWithArguments(opNode,reconstructed); // wash away the old structure at this node
 
-        return complexLocalSimplify(opNode); // final collapse handling in case of a malformed addition
+        return localCollapseStructure(opNode); // final collapse handling in case of a malformed operation
+        // particularly, constants that only flattened out during reconstruction, such as in the degree = 1 or degree = 0 case
     }
-    NodePtr Add::complexExpansion(OpPtr opNode) const
+    NodePtr Add::expand(OpPtr opNode) const
     {
         return opNode->shared_from_this();
     }
 
-    NodePtr Add::complexLocalSimplify(OpPtr opNode) const
+    NodePtr Add::localCollapseStructure(OpPtr opNode) const
     {
         auto& oldArgs = opNode->getArguments();
 
         std::vector<NodePtr> newArgs;
         newArgs.reserve(oldArgs.size());
-        InfFloat constant(0);
+        InfRational constant(0);
         for(const auto& node: oldArgs)
         {
-            if(const auto& number = SoftCasting::toNumber(node))
+            if(const auto& number = SoftCasting::toRational(node))
             {
-                if(number->getValue() == 0)
+                if(number->getFraction() == 0)
                     continue;
-                constant += number->getValue();
+                constant += number->getFraction();
                 continue;
             }
 

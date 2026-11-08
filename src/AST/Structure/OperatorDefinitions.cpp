@@ -31,7 +31,7 @@ const SymbolDataAccumulator::SymbolData *SymbolDataAccumulator::getSymbol(const 
     if (it == map.end()) return nullptr;
     return &(it->second);
 }
-void SymbolDataAccumulator::insertOrAccumulate(const std::string &symbolName, SymbolPtr node, std::function<void(InfFloat &, InfFloat &)> transformation, InfFloat originalCoeff, InfFloat originalExp)
+void SymbolDataAccumulator::insertOrAccumulate(const std::string &symbolName, SymbolPtr node, std::function<void(InfRational &, InfRational &)> transformation, InfRational originalCoeff, InfRational originalExp)
 {
     auto& data = map[symbolName];
 
@@ -45,7 +45,7 @@ void SymbolDataAccumulator::insertOrAccumulate(const std::string &symbolName, Sy
 
     transformation(data.coeff,data.degree);
 }
-void SymbolDataAccumulator::set(const std::string &symbolName, InfFloat coeff, InfFloat degree)
+void SymbolDataAccumulator::set(const std::string &symbolName, InfRational coeff, InfRational degree)
 {
     SymbolData* data = getSymbol(symbolName);
     if(!data)
@@ -61,7 +61,7 @@ std::vector<NodePtr> OpDefinition::reduceToSymbols(const OpPtr &op)
     args.reserve(originalArgs.size());
     for(size_t i=0;i<originalArgs.size();i++)
     {
-        if(SoftCasting::toNumber(originalArgs[i]))
+        if(SoftCasting::toRawNumber(originalArgs[i]))
             continue;
         args.push_back(originalArgs[i]);
     }

@@ -1,6 +1,8 @@
 #include "Nodes.hpp"
 #include "OperatorDefinitions.hpp"
 #include "../include/NodeFactory.hpp"
+#include "../Parsing/Parser.hpp"
+#include <set>
 
 namespace AST
 {
@@ -8,63 +10,80 @@ namespace AST
     SymbolPtr SoftCasting::toSymbol(const NodePtr node)
     {
         if (!node) return nullptr;
-        return node->asSymbol()? std::static_pointer_cast<const Symbol>(node):nullptr;
+        const Symbol* rawSymbol = node->asSymbol();
+        if (!rawSymbol) return nullptr;
+        return std::shared_ptr<const Symbol>(node, rawSymbol);
     }
+
+    NumberPtr SoftCasting::toRawNumber(const NodePtr node)
+    {
+        if (!node) return nullptr;
+        if (node->asSymbol()) return nullptr; // No SymbolicConstant nodes!
+        return SoftCasting::toNumber(node);
+    }
+
     NumberPtr SoftCasting::toNumber(const NodePtr node)
     {
         if (!node) return nullptr;
-        return node->asNumber()? std::static_pointer_cast<const NumberNode>(node):nullptr;
+        const NumberNode* rawNumber = node->asNumber();
+        if (!rawNumber) return nullptr;
+        return std::shared_ptr<const NumberNode>(node, rawNumber);
     }
 
     RationalPtr SoftCasting::toRational(const NodePtr node)
     {
         if (!node) return nullptr;
-        return node->asNumber()? node->asNumber()->asRational()? std::static_pointer_cast<const RationalNode>(node):nullptr:nullptr;
+        const NumberNode* rawNumber = node->asNumber();
+        if (!rawNumber) return nullptr;
+        const RationalNode* rational = rawNumber->asRational();
+        if (!rational) return nullptr;
+        return std::shared_ptr<const RationalNode>(node, rational);
     }
 
     RationalPtr SoftCasting::toRational(const NumberPtr node)
     {
         if (!node) return nullptr;
-        return node->asRational()? std::static_pointer_cast<const RationalNode>(node):nullptr;
-    }
-
-    FloatPtr SoftCasting::toFloat(const NodePtr node)
-    {
-        if (!node) return nullptr;
-        return node->asNumber()? node->asNumber()->asFloat()? std::static_pointer_cast<const FloatNode>(node):nullptr:nullptr;
-    }
-
-    FloatPtr SoftCasting::toFloat(const NumberPtr node)
-    {
-        if (!node) return nullptr;
-        return node->asFloat()? std::static_pointer_cast<const FloatNode>(node):nullptr;
+        const RationalNode* rational = node->asRational();
+        if (!rational) return nullptr;
+        return std::shared_ptr<const RationalNode>(node, rational);
     }
 
     VariablePtr SoftCasting::toVariable(const SymbolPtr node)
     {
         if (!node) return nullptr;
-        return node->asVariable()? std::static_pointer_cast<const VariableNode>(node):nullptr;
+        const VariableNode* var = node->asVariable();
+        if (!var) return nullptr;
+        return std::shared_ptr<const VariableNode>(node, var);
     }
+
     VariablePtr SoftCasting::toVariable(const NodePtr node)
     {
         if (!node) return nullptr;
-        auto symbol = node->asSymbol();
-        return (symbol && symbol->asVariable()) 
-            ? std::static_pointer_cast<const VariableNode>(node) 
-            : nullptr;
+        const Symbol* symbol = node->asSymbol();
+        if (!symbol) return nullptr;
+        const VariableNode* var = symbol->asVariable();
+        if (!var) return nullptr;
+        return std::shared_ptr<const VariableNode>(node, var);
     }
-    OpPtr SoftCasting::SoftCasting::toOperator(const SymbolPtr node)
+
+    OpPtr SoftCasting::toOperator(const SymbolPtr node)
     {
         if (!node) return nullptr;
-        return node->asOperator()? std::static_pointer_cast<const OperatorNode>(node):nullptr;
+        const OperatorNode* op = node->asOperator();
+        if (!op) return nullptr;
+        return std::shared_ptr<const OperatorNode>(node, op);
     }
-    OpPtr SoftCasting::SoftCasting::toOperator(const NodePtr node)
+
+    OpPtr SoftCasting::toOperator(const NodePtr node)
     {
         if (!node) return nullptr;
-        return node->asSymbol() && node->asSymbol()->asOperator() 
-            ? std::static_pointer_cast<const OperatorNode>(node) 
-            : nullptr;
+        const Symbol* symbol = node->asSymbol();
+        if (!symbol) return nullptr;
+        const OperatorNode* op = symbol->asOperator();
+        if (!op) return nullptr;
+        return std::shared_ptr<const OperatorNode>(node, op);
     }
+
 
     Node::ConstPolynomial Node::extractMetadata(NodePtr node)
     {   
@@ -75,7 +94,7 @@ namespace AST
         const auto* op = node->asSymbol()->asOperator();
 
         if(op->getName() == "^")
-        {   if(auto exp = SoftCasting::toNumber(op->getArgument(1)))
+        {   if(auto exp = SoftCasting::toRawNumber(op->getArgument(1)))
                 return {op->getArgument(0), exp,one};
             else
                 return {node,one,one}; // complex exponent, like 2^x or x^(x+1)
@@ -83,7 +102,7 @@ namespace AST
 
         if(op->getName() == "*")
         {
-            auto coeff = SoftCasting::toNumber(op->getArgument(0));
+            auto coeff = SoftCasting::toRawNumber(op->getArgument(0));
             if(!coeff) // case with no constant multiple
                 return {node,one,one};
             if(op->getArguments().size() != 2) // if the multiplication is beyond binary, don't bother
@@ -93,7 +112,7 @@ namespace AST
             const auto* innerSym = innerArg->asSymbol(); 
             if(!innerSym) // malformed multiplication, prob two numbers
             {
-                if(auto innerNum = SoftCasting::toNumber(innerArg))
+                if(auto innerNum = SoftCasting::toRawNumber(innerArg))
                     return {NodeFactory::makeNumber(innerNum->getValue() * coeff->getValue()),one,one};
                 return {node,one,one};
             }
@@ -208,69 +227,104 @@ namespace AST
     }
 
     
-    Environment::Environment(const std::vector<std::string> &tokens)
+   Environment::Environment(const std::vector<std::string> &tokens)
+{
+    std::map<NodePtr, NodePtr> mapping;
+
+    for (size_t i = 0; i < tokens.size() - 1; i += 2)
     {
-        for(size_t i=0;i<tokens.size();i++)
-        {
-            const std::string& arg = tokens[i];
-            InfFloat val = 0.0;
-            if(i+1 < tokens.size())
-            {
-                try
-                {
-                    val = InfFloat(tokens[i+1]);
-                }
-                catch (const std::exception& e) {
-                    map[arg] = 0.0;
-                    continue;
-                }
-                map[arg] = val;
-                i++;
+        NodePtr lhs = Parser(tokens[i]).buildAST();
+        NodePtr rhs = Parser(tokens[i + 1]).buildAST();
+
+        if (!lhs || !lhs->isSubstitutable()) {
+            throw std::runtime_error("Invalid assignment target! Left-hand side must be substitutable.");
+        }
+
+        auto [iterator, success] = mapping.insert({lhs, rhs});
+        if (!success) {
+            throw std::runtime_error("Duplicate mapping detected! Target already assigned.");
+        }
+    }
+
+    if (tokens.size() > 1 && tokens.size() % 2 == 1)
+    {
+        NodePtr lhs = Parser(tokens[tokens.size() - 1]).buildAST();
+        
+        if (!lhs || !lhs->isSubstitutable()) {
+            throw std::runtime_error("Invalid assignment target! Left-hand side must be substitutable.");
+        }
+
+        auto [iterator, success] = mapping.insert({lhs, NodeFactory::makeNumber(0)});
+        if (!success) {
+            throw std::runtime_error("Duplicate mapping detected! Target already assigned.");
+        }
+    }
+
+    setMap(mapping);
+}
+
+
+    Environment::Environment(const std::map<NodePtr, NodePtr> &mapping){setMap(mapping);}
+
+    NodePtr Environment::lookup(const std::string &str) const
+    {
+        auto node = Parser(str).buildAST();
+        return lookup(node);
+    }
+
+    void Environment::setMap(const std::map<NodePtr, NodePtr> &inputs) {
+
+        std::map<NodePtr, NodePtr> mapping;
+        
+        for (const auto& [lhs, rhs] : inputs) {
+            if (!lhs || !lhs->isSubstitutable()) {
+                throw std::runtime_error("Invalid assignment target! Left-hand side must be substitutable.");
             }
-            else
-                try
-                {
-                    val = InfFloat(arg);
-                    break;
-                }
-                catch (const std::exception& e) {
-                    map[arg] = 0.0;
-                    break;
-                }
 
+            auto [iterator, success] = mapping.insert({lhs, rhs});
+            if (!success) {
+                throw std::runtime_error("Duplicate mapping detected! Variable or operator already assigned.");
+            }
         }
-    }
 
-    bool RationalNode::identical(const NodePtr other) const
-    {
-        auto rat = SoftCasting::toRational(other);
-        if(!rat)
-            return false; // for now
+        std::set<NodePtr> visited;
+        std::set<NodePtr> inProgress;
 
-        return mp::abs(fraction - rat->fraction) < Config::EPSILON;
-    }
+        auto hasInfiniteLoop = [&](auto& self, const NodePtr& currentVar) -> bool {
+            if (!currentVar) return false;
+            
+            if (inProgress.count(currentVar)) return true;
+            if (visited.count(currentVar)) return false;
 
-    NumberPtr VariableNode::evaluate(const Environment &env) const
-    {
-        InfFloat value = env[this->getName()];
-        return NodeFactory::makeNumber(value);
-    }
-    
+            inProgress.insert(currentVar);
 
-    bool OperatorNode::identical(const NodePtr other) const
-    {
-        if(!this->sameOperator(other))
+            auto it = mapping.find(currentVar);
+            if (it != mapping.end()) {
+                const NodePtr& expression = it->second;
+
+                for (const auto& [otherVar, _] : mapping) {
+                    // dont check against yourself
+                    if (currentVar == otherVar) continue;
+
+                    if (expression && expression->owns(otherVar)) {
+                        if (self(self, otherVar)) return true;
+                    }
+                }
+            }
+
+            inProgress.erase(currentVar);
+            visited.insert(currentVar);
             return false;
+        };
 
-        const auto* otherOp = other->asSymbol()->asOperator();
-        if(arguments.size()!=otherOp->arguments.size())
-            return false;
-        for(int i=0;i<arguments.size();i++)
-        {
-            if(!arguments[i]->identical(otherOp->arguments[i]))
-                return false;
+        // check against cycles that can't be resolved in a finite amount of steps
+        for (const auto& [var, _] : mapping) {
+            if (hasInfiniteLoop(hasInfiniteLoop, var)) {
+                throw std::runtime_error("Infinite evaluation loop detected! Do better.");
+            }
         }
-        return true;
+
+        this->map = mapping;
     }
 
     OperatorNode::OperatorNode(const std::vector<NodePtr> &args, const std::shared_ptr<const OpDefinition> &op)
@@ -286,7 +340,7 @@ namespace AST
             args.push_back(arguments[i]);
 
         auto res = NodeFactory::makeOperator(name,args);
-        return res->getDefinition()->complexLocalSimplify(res);
+        return res->getDefinition()->localCollapseStructure(res);
     }
 
     NodePtr OperatorNode::remakeWithoutArgument(size_t elementIndex) const
@@ -301,11 +355,26 @@ namespace AST
             args.push_back(arguments[i]);
         }
         auto res = NodeFactory::makeOperator(name,args);
-        return res->getDefinition()->complexLocalSimplify(res);
+        return res->getDefinition()->localCollapseStructure(res);
     }
 
     OperatorNode::OperatorNode(const OperatorNode& other) 
         : Symbol(other), op(other.op) ,arguments(other.arguments){}
+    bool OperatorNode::owns(const NodePtr other) const
+    {
+        if(this == other.get())
+            return true;
+        for(const auto& arg:arguments)
+        {
+            if(arg->owns(other))
+                return true;
+        }
+        return false;
+    }
+    bool OperatorNode::isSubstitutable() const
+    {
+        return op->hasProperty(OpProperty::FUNCTIONAL_MAPPING);
+    }
     // method that applies properties of the operator to streamline its arguments
     // for example, sorts the arguments of commutative operators
     OpPtr OperatorNode::unify(OpPtr opToSimplify)
@@ -366,7 +435,7 @@ namespace AST
 
     NodePtr OperatorNode::localSimplify(OpPtr opToSimplify)
     {
-        return opToSimplify->getDefinition()->complexLocalSimplify(opToSimplify);
+        return opToSimplify->getDefinition()->localCollapseStructure(opToSimplify);
     }
 
     NodePtr OperatorNode::simplify(OpPtr opToSimplify)
@@ -402,7 +471,7 @@ namespace AST
         if(!opToSimplify)
             return postChildClean;
 
-        auto final = opToSimplify->getDefinition()->complexSimplify(opToSimplify);
+        auto final = opToSimplify->getDefinition()->simplify(opToSimplify);
         opToSimplify = SoftCasting::toOperator(final);
         if(!opToSimplify)
             return final;
@@ -442,13 +511,13 @@ namespace AST
         opToExpand = unify(opToExpand);
     
         // second shallow cleaning, ensures compressions that can only be found after expanding children are found
-        auto postChildClean = opToExpand->getDefinition()->complexLocalSimplify(opToExpand);
+        auto postChildClean = opToExpand->getDefinition()->localCollapseStructure(opToExpand);
         opToExpand = SoftCasting::toOperator(postChildClean);
         
         if(!opToExpand)
             return postChildClean;
 
-        auto final = opToExpand->getDefinition()->complexExpansion(opToExpand);
+        auto final = opToExpand->getDefinition()->expand(opToExpand);
         opToExpand = SoftCasting::toOperator(final);
         if(!opToExpand)
             return final;
@@ -469,63 +538,35 @@ namespace AST
         return simplify(opToSimplify); 
     }
 
+    InfFloat OperatorNode::approximate(OpPtr opToApproximate)
+    {
+        std::vector<InfFloat> approximateArgs; // they will be NumberPtrs
+        approximateArgs.reserve(opToApproximate->getArguments().size());
+        for(auto& arg : opToApproximate->getArguments())
+        {
+            if(auto innerOperator = SoftCasting::toOperator(arg)) {
+                approximateArgs.push_back(approximate(innerOperator));
+            } else if(auto innerNum = SoftCasting::toNumber(arg)){
+                approximateArgs.push_back(innerNum->getValue());
+            }
+            else
+                throw std::runtime_error("Cannot approximate: '" + arg->toString() + "' as a floating point number.");
+        }
+
+        auto finalApprox = opToApproximate->getDefinition()->approximate(approximateArgs);
+
+        return finalApprox;
+    }
+
     const std::string OperatorNode::toString() const
     {
         return op->toString(arguments);
     }
-    NumberPtr OperatorNode::evaluate(const Environment &env) const
+
+    bool OperatorNode::sameOperator(const NodePtr other) const
     {
-        std::string str = toString();
-        
-        if (const InfFloat* val = env.lookup(str))
-            return NodeFactory::makeNumber(*val);
-
-        std::vector<NumberPtr> values = {};
-        values.reserve(arguments.size());
-
-        for(const auto& arg:arguments)
-        {
-            if(auto symb = SoftCasting::toSymbol(arg))
-                values.push_back(symb->evaluate(env));
-            else if(auto num = SoftCasting::toNumber(arg))
-                values.push_back(num);
-        }
-
-        return op->evaluate(values,env);
-    }
-
-    const std::string FloatNode::toString() const  
-    {
-        std::stringstream ss;
-        ss << std::fixed << std::setprecision(0) << val; // dump it all
-        std::string raw_str = ss.str();
-
-        if (raw_str.length() > 12) {
-            std::stringstream compressed;
-            
-            compressed << raw_str[0] << ".";
-            
-            compressed << raw_str.substr(1, 5);
-            
-            std::string leading = compressed.str();
-            leading.erase(leading.find_last_not_of('0') + 1, std::string::npos);
-            if (leading.back() == '.') {
-                leading.pop_back();
-            }
-
-            size_t exponent = raw_str.length() - 1;
-            
-            return leading + "...e+" + std::to_string(exponent);
-        }
-
-        return raw_str;
-    }
-
-    bool FloatNode::identical(const NodePtr other) const
-    {
-        if(auto o = SoftCasting::toFloat(other))
-            return this->val == o->val;
-        return false;
+        auto sym = SoftCasting::toSymbol(other);
+        return sym && getName() == sym->getName();
     }
 
 };

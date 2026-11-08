@@ -40,12 +40,16 @@ public:
         }
         
         bool operator==(const RegistryKey& other) const {
+            // Pure pointer comparisons are now 100% safe because the factory 
+            // guarantees global uniqueness down to the leaf nodes.
             if (type != other.type || args != other.args) return false;
-            return value == other.value; // Exact match via InfRational or std::string
+            return value == other.value; 
         }
 
+
+
     private:
-                void computeHash() {
+        void computeHash() {
             std::size_t h = std::hash<int>{}(static_cast<int>(type));
             
             std::visit([&h](const auto& val) {
@@ -55,16 +59,17 @@ public:
                 } else if constexpr (std::is_same_v<T, std::string>) {
                     h ^= std::hash<std::string>{}(val) + 0x9e3779b97f4a7c15 + (h << 6) + (h >> 2);
                 } else if constexpr (std::is_same_v<T, InfRational>) {
-                    // CANONIZATION FIX: Convert the rational to a standardized base string form
-                    // before hashing, stripping away distinct limb sizes and layout noise.
+
                     std::string stableStr = val.str();
                     h ^= std::hash<std::string>{}(stableStr) + 0x9e3779b97f4a7c15 + (h << 6) + (h >> 2);
                 }
             }, value);
 
             for (const auto& arg : args) {
-                h ^= std::hash<NodePtr>{}(arg) + 0x9e3779b97f4a7c15 + (h << 6) + (h >> 2);
+                std::string argStr = arg->getPreFix();
+                h ^= std::hash<std::string>{}(argStr) + 0x9e3779b97f4a7c15 + (h << 6) + (h >> 2);
             }
+
             cached_hash = h;
         }
 
@@ -93,7 +98,7 @@ public:
     static OpPtr getWithArguments(const OperatorNode *op, const std::vector<NodePtr> &children);
     static OpPtr getWithArguments(OpPtr op, const std::vector<NodePtr>& children);
 
-    static NodePtr NodeFactory::substitute(NodePtr treeRoot, const std::map<std::string, NodePtr>&replacementMap);
+    static NodePtr NodeFactory::substitute(NodePtr treeRoot, const Environment&replacementMap);
 };
     
 }
