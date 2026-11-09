@@ -18,7 +18,6 @@ public:
     static const bool DEBUG_MODE = false;
     static constexpr int MAX_FIXED_POINT_ITERATIONS = 50;
     static constexpr double EPSILON = 1e-15; // decently large for the framework
-    static constexpr int FLOAT_PRECISION = FLOAT_PRECISION; 
 
     // 100 digits of accuracy
 

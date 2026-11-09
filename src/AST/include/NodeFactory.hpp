@@ -98,7 +98,7 @@ public:
     static OpPtr getWithArguments(const OperatorNode *op, const std::vector<NodePtr> &children);
     static OpPtr getWithArguments(OpPtr op, const std::vector<NodePtr>& children);
 
-    static NodePtr NodeFactory::substitute(NodePtr treeRoot, const Environment&replacementMap);
+    static NodePtr substitute(NodePtr treeRoot, const Environment&replacementMap);
 };
     
 }

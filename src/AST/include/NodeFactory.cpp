@@ -41,7 +41,7 @@ NumberPtr NodeFactory::makeNumber(const InfFloat &val) {
         InfFloat mantissa = mp::frexp(val, &exp);
 
   
-        const int precision_bits = Config::FLOAT_PRECISION; 
+        const int precision_bits = FLOAT_PRECISION; 
         mp::cpp_int scale_factor = mp::pow(mp::cpp_int(10), precision_bits);
         
         mp::cpp_int num = (mantissa * InfFloat(scale_factor)).convert_to<mp::cpp_int>();

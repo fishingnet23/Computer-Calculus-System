@@ -141,7 +141,6 @@ public:
     
     virtual NodeType type() const override {return NodeType::Scalar;}
     
-    virtual const std::string toString() const = 0;
     virtual InfFloat getValue()const = 0;
 
     virtual int compare(const NumberPtr& other) const {
@@ -229,15 +228,15 @@ public:
             return num_str;
     }
 
-    const auto& getNumerator() const {return mp::numerator(fraction);}
-    const auto& getDenominator() const {return mp::denominator(fraction);}
+    InfInt getNumerator() const {return mp::numerator(fraction);}
+    InfInt getDenominator() const {return mp::denominator(fraction);}
 
     const InfRational& getFraction() const {return fraction;}
 
-    virtual InfFloat getValue() const { return fraction.convert_to<InfFloat>();}
+    virtual InfFloat getValue() const override { return fraction.convert_to<InfFloat>();}
 
-    virtual RationalNode* asRational() {return this;}
-    virtual const RationalNode* asRational() const {return this;}
+    virtual RationalNode* asRational() override {return this;}
+    virtual const RationalNode* asRational() const override {return this;}
 };
 
 
@@ -259,7 +258,6 @@ public:
 
     void setName(const std::string& name){this->name = name;}
 
-    virtual const std::string toString() const = 0;
     virtual const std::string getPostFix() const override {return toString();}
     virtual const std::string getPreFix() const override {return toString();}
 
