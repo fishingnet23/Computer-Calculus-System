@@ -1,4 +1,5 @@
 #include "../../include/NodeFactory.hpp"
+#include "../../include/Utilities.hpp"
 #include "Add.hpp"
 
 namespace AST
@@ -165,6 +166,32 @@ namespace AST
 
         return str;
     }
+
+    NodePtr Add::factorize(OpPtr opNode) const
+    {
+        const auto& arguments = opNode->getArguments();
+
+        std::vector<NodePtr> factorsLeft;
+        
+        // extract gcd and store factors left after division by the gcd
+        NodePtr gcd = Utilities::symbolicGcd(arguments, factorsLeft); 
+        
+        // if gcd is 1, bail out
+        if (gcd == NodeFactory::makeNumber(1))
+        {
+            return opNode; 
+        }
+
+       // reconstuct a new sum from the divided factors
+        auto rawSum = NodeFactory::makeOperator("+", factorsLeft);
+        auto remainingSum = OperatorNode::canonicalize(rawSum);
+
+        auto multiplication = NodeFactory::makeOperator("*", { gcd, remainingSum }); // build the multiplication
+        multiplication = OperatorNode::unify(multiplication);
+        
+        return multiplication;
+    }
+
 
     OpPtr Add::buildInverseOf(OpPtr opToInvert) const
     {

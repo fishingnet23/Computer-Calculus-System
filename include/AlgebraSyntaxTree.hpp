@@ -110,6 +110,8 @@ public:
 
     void cannonize()
     {
+        if(!root)
+            return;
         int count = 0;
         NodePtr rootBefore;
         do
@@ -126,6 +128,25 @@ public:
             compress();
             count++;
         }while(root && root != rootBefore && count < Config::MAX_FIXED_POINT_ITERATIONS); // pointer check
+    }
+
+    void factorize()
+    {
+        if(!root)
+            return;
+        auto op = SoftCasting::toOperator(root);
+        if(!op)
+            return;
+
+        int count = 0;
+        NodePtr rootBefore;
+        do
+        {
+            rootBefore = root;
+            root = OperatorNode::factorize(op);
+            auto op = SoftCasting::toOperator(root);
+            count++;
+        }while(root && op && root != rootBefore && count < Config::MAX_FIXED_POINT_ITERATIONS); // pointer check
     }
 
     bool equals(const AlgebraExpression& other)

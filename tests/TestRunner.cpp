@@ -3,6 +3,7 @@
 #include "TestTypes/InverseTest.hpp"
 #include "TestTypes/SimplificationTest.hpp"
 #include "TestTypes/ExpansionTest.hpp"
+#include "TestTypes/FactorizerTest.hpp"
 #include <sstream>
 
 
@@ -672,6 +673,96 @@ static InverseTest testInverses()
     return inverses;
 }
 
+static FactorizerTest testFactorizer()
+{
+    FactorizerTest factorizer;
+
+    // inverses.hideDescriptions();
+    factorizer.showDescriptions(); // uncomment to enable descriptions
+
+// basic gcd tests
+    factorizer.test("x y + x z", "x(y+z)", "basic variable extraction from two terms");
+    factorizer.test("a b c - a b d", "a b (c - d)", "variable extraction leaving a difference");
+    factorizer.test("x^2 + x", "x*(x + 1)", "extracting a variable from an implicit power of 1");
+    factorizer.test("y^5 - y^3", "y^3(y^2 - 1)", "extracting a lower explicit power leaving a polynomial");
+
+    factorizer.test("6x + 9y", "3(2x + 3y)", "integer coefficient extraction");
+    factorizer.test("4x y - 2x", "2x(2y - 1)", "variable and integer coefficient extraction");
+    factorizer.test("(1/2)x + (1/4)y", "(1/4)(2x+y)", "Rational fraction extraction clearing internal denominators");
+    factorizer.test("(3/2)x^2 + 6x", "(3/2)x(x + 4)", "Mixed rational coefficient and variable power extraction");
+
+    factorizer.test("(x + 1)^2 * y + (x + 1)^3 * z", "(x + 1)^2 * (x*z+z+y)", "Factoring out a composite base in nonstandard order");
+    factorizer.test("(a + b) * x + (a + b) * y", "(a + b) * (x + y)", "leaving monomials");
+    factorizer.test("(x^2 + 1)^3 - (x^2 + 1)^2", "(x^2 + 1)^2 * x^2", "Composite base extraction leaving an unsimplified internal constant difference");
+
+    factorizer.test("x^(n + 1) + x^n", "x^n * (x + 1)", "Symbolic exponent extraction using linear delta subtraction");
+    factorizer.test("y^(2 * n + 5) - y^(2 * n - 3)", "y^(2 * n - 3) * (y^8 - 1)", "Symbolic linear offset extraction leaving a large integer power");
+    factorizer.test("x^a * y + x^a * z", "x^a * (y + z)", "Factoring out a purely symbolic power term");
+
+    factorizer.test("x^3 * y^3 + x^2 * y^4 + x^5 * y^2", "x^2 * y^2 * (x * y + y^2 + x^3)", "Three-term sequential variable extraction");
+    factorizer.test("12 * x^2 * y^2 + 18 * x * z + 6", "6 * (2 * x^2 * y^2 + 3 * x * z + 1)", "Complete variable evacuation leading to a trailing constant of 1");
+    factorizer.test("(4/3) * x^n * (y + 1)^2 + (8/9) * x^(n + 2) * (y + 1)", "(4/9) * x^n * (y + 1) * (3y + 3 + 2 * x^2)", "Extreme structural integration of fractions, symbolic exponents, and composite bases");
+
+    factorizer.test("x + y + z", "1 * (x + y + z)", "Completely coprime addition expression leaves everything inside");
+    factorizer.test("x^a + x^b", "1 * (x^a + x^b)", "Unresolvable symbolic exponent difference falls back to a GCD of 1");
+    factorizer.test("x^x * y + x^y * z", "1 * (x^x * y + x^y * z)", "Boundary check for mismatched x^x and x^y bases preventing extraction");
+    
+    factorizer.test("x^(n + 3) * y^(m + 1) + x^(n + 1) * y^(m + 2)", "x^(n + 1) * y^(m + 1) * (x^2 + y)", "Basic multi-variable symbolic exponent tracking");
+    factorizer.test("a^(3 * n - 1) * b^(2 * m + 4) - a^(3 * n - 5) * b^(2 * m - 1)", "(b^5 * a^4 + -1) * a^(3 * n - 5) * b^(2 * m - 1)", "Intersecting positive and negative symbolic loops");
+
+    factorizer.test("(1/3) * x^2 + (1/6) * x + (5/12)", "(1/12) * (4 * x^2 + 2 * x + 5)", "Three-term rational fraction extraction");
+    factorizer.test("(5/2) * x^n - (15/4) * x^(n + 1)", "(5/4) * (-3 * x + 2) * x^n", "Mixed rational coefficient and symbolic power extraction");
+
+    factorizer.test("(x + y)^5 + (x + y)^4", "(x + y + 1) * (x + y)^4", "Naked composite base extraction leaving trailing constants");
+    factorizer.test("(x + 1)^2 * y + (x - 1)^3 * z", "y * (x + 1)^2 + z * (x - 1)^3", "Mismatched composite bases testing coprime limits");
+    factorizer.test("(x^2 + 2 * x + 1)^3 * y - (x^2 + 2 * x + 1)^2 * z", "(y * x^2 + 2 * x * y + y + -1 * z) * (x^2 + 2 * x + 1)^2", "Multi-nested composite block extraction");
+
+    factorizer.test("a * b * c * d + a * b * c + a * b + a", "a * (b * c * d + b * c + b + 1)", "Four-term sequential variable evacuation");
+    factorizer.test("x^3 * y^2 * z + x^2 * y^3 * z^2 + x^4 * y * z^3", "x^2 * y * z * (x * y + y^2 * z + x^2 * z^2)", "Interleaved variables forcing extensive sorting");
+    factorizer.test("(2/3) * x^n * (a + b)^3 + (4/9) * x^(n + 1) * (a + b)^2", "(2/9) * (3 * a + 3 * b + 2 * x) * x^n * (a + b)^2", "Fractional multi-factor structural integration challenge");
+
+    factorizer.test("-3x - 6y", "3(-x -2y)", "Sign factorization, always pick absolute value");
+    factorizer.test("x^a * y^b + x^(a + 2) * y^(b - 1)", "(y + x^2) * x^a * y^(b - 1)", "Purely symbolic variable-based powers without coefficients");
+    factorizer.test("12 * x^2 + 18 * x + (3/2)", "(3/2) * (8 * x^2 + 12 * x + 1)", "Constant evacuation with a trailing fraction");
+    factorizer.test("(x^2)^n + (x^2)^(n + 1)", "(x^2 + 1) * (x^2)^n", "Base matching where base itself is a power");
+    factorizer.test("(6/5) * a^n * b^m * (x + 1)^2 + (9/10) * a^(n + 1) * b^(m - 1) * (x + 1)", "(3/10) * (4 * b * x + 4 * b + 3 * a) * a^n * b^(m - 1) * (x + 1)", "Ultimate structural breakdown");
+    factorizer.test("x^(2 * n + 1) * y^(3 * m) + x^(2 * n - 1) * y^(3 * m + 2)", "x^(2 * n - 1) * y^(3 * m) * (x^2 + y^2)", "Simultaneous double variable offset crossover extraction");
+    factorizer.test("a^(n + 2) * b^n - a^n * b^(n + 2)", "a^n * b^n * (a^2 + -1 * b^2)", "Symmetric variable exponent difference leaving a difference of squares");
+    factorizer.test("(3/5) * x^3 + (6/25) * x^2 + (9/10) * x", "(3/50) * (10 * x^3 + 4 * x^2 + 15 * x)", "Three term fractional extraction with large coprimality scaling");
+    factorizer.test("(7/4) * x^(n + 3) - (21/8) * x^(n + 1)", "(7/8) * (2 * x^2 + -3) * x^(n + 1)", "Fractional clearing across mismatched positive symbolic shifts");
+    factorizer.test("(x^2 + y^2)^4 + (x^2 + y^2)^3 * z", "(x^2 + y^2 + z) * (x^2 + y^2)^3", "Composite quadratic base extraction leaving a trailing variable sum");
+    factorizer.test("(x + 2)^2 * y^2 - (x + 2)^2 * z^2", "(y^2 + -1 * z^2) * (x + 2)^2", "Complete composite evacuation leading to an internal difference of squares");
+    factorizer.test("(a + b + c)^3 * x + (a + b + c)^2 * y + (a + b + c) * z", "(x * a^2 + 2 * a * b * x + 2 * a * c * x + b^2 * x + 2 * b * c * x + c^2 * x + a * y + b * y + c * y + z) * (a + b + c)", "Multi term cascading evaluation of deeply nested multi node bases");
+    factorizer.test("a * b * c * d * e + a * b * c * d + a * b * c + a * b + a", "a * (b * c * d * e + b * c * d + b * c + b + 1)", "Five term deep sequential variable extraction");
+    factorizer.test("x^5 * y^4 * z^3 + x^4 * y^5 * z^2 + x^3 * y^6 * z^4", "x^3 * y^4 * z^2 * (x^2 * z + x * y + y^2 * z^2)", "Three term wide variable power scanning and intersection");
+    factorizer.test("(3/4) * x^n * (a - b)^2 - (9/16) * x^(n + 1) * (a - b)", "(3/16) * (-1 * b + a) * (-3 * x + -4 * b + 4 * a) * x^n", "Complete structural unification challenge with distributed negative components");
+    factorizer.test("-5 * x - 10 * y - 15 * z", "5 * (-3 * z + -2 * y + -1 * x)", "Three term negative integer complete sign matching enforcement");
+    factorizer.test("x^a * y^b * z^c + x^(a + 1) * y^(b + 1) * z^(c + 1)", "(x * y * z + 1) * x^a * y^b * z^c", "Three variable purely symbolic exponent offset extraction");
+    factorizer.test("24 * x^3 + 36 * x^2 + (12/7) * x", "(12/7) * (14 * x^3 + 21 * x^2 + x)", "Fractional denominator clearing targeting a single fractional trailing term");
+    factorizer.test("(x^3)^n + (x^3)^(n + 2)", "(x^6 + 1) * (x^3)^n", "Nested base evaluation where inner token is a cubic power");
+    factorizer.test("(10/3) * a^n * b^m * (x + 2)^3 - (5/6) * a^(n + 2) * b^(m - 1) * (x + 2)^2", "(5/6) * (4 * b * x + 8 * b + -1 * a^2) * a^n * b^(m - 1) * (x + 2)^2", "Complete stress limits integration spanning every architectural capability");
+    factorizer.test("x^(2 * n + 1) * y^(3 * m) + x^(2 * n - 1) * y^(3 * m + 2)", "x^(2 * n - 1) * y^(3 * m) * (x^2 + y^2)", "Simultaneous double variable offset crossover extraction");
+    factorizer.test("a^(n + 2) * b^n - a^n * b^(n + 2)", "a^n * b^n * (a^2 + -1 * b^2)", "Symmetric variable exponent difference leaving a difference of squares");
+    factorizer.test("(3/5) * x^3 + (6/25) * x^2 + (9/10) * x", "(3/50) * (10 * x^3 + 4 * x^2 + 15 * x)", "Three term fractional extraction with large coprimality scaling");
+    factorizer.test("(7/4) * x^(n + 3) - (21/8) * x^(n + 1)", "(7/8) * (2 * x^2 + -3) * x^(n + 1)", "Fractional clearing across mismatched positive symbolic shifts");
+    factorizer.test("(x^2 + y^2)^4 + (x^2 + y^2)^3 * z", "(x^2 + y^2 + z) * (x^2 + y^2)^3", "Composite quadratic base extraction leaving a trailing variable sum");
+    factorizer.test("(x + 2)^2 * y^2 - (x + 2)^2 * z^2", "(y^2 + -1 * z^2) * (x + 2)^2", "Complete composite evacuation leading to an internal difference of squares");
+    factorizer.test("(a + b + c)^3 * x + (a + b + c)^2 * y + (a + b + c) * z", "(x * a^2 + 2 * a * b * x + 2 * a * c * x + b^2 * x + 2 * b * c * x + c^2 * x + a * y + b * y + c * y + z) * (a + b + c)", "Multi term cascading evaluation of deeply nested multi node bases");
+    factorizer.test("a * b * c * d * e + a * b * c * d + a * b * c + a * b + a", "a * (b * c * d * e + b * c * d + b * c + b + 1)", "Five term deep sequential variable extraction");
+    factorizer.test("x^5 * y^4 * z^3 + x^4 * y^5 * z^2 + x^3 * y^6 * z^4", "x^3 * y^4 * z^2 * (x^2 * z + x * y + y^2 * z^2)", "Three term wide variable power scanning and intersection");
+    factorizer.test("(3/4) * x^n * (a - b)^2 - (9/16) * x^(n + 1) * (a - b)", "(3/16) * (-1 * b + a) * (-3 * x + -4 * b + 4 * a) * x^n", "Complete structural unification challenge with distributed negative components");
+    factorizer.test("-5 * x - 10 * y - 15 * z", "5 * (-3 * z + -2 * y + -1 * x)", "Three term negative integer complete sign matching enforcement");
+    factorizer.test("x^a * y^b * z^c + x^(a + 1) * y^(b + 1) * z^(c + 1)", "(x * y * z + 1) * x^a * y^b * z^c", "Three variable purely symbolic exponent offset extraction");
+    factorizer.test("24 * x^3 + 36 * x^2 + (12/7) * x", "(12/7) * (14 * x^3 + 21 * x^2 + x)", "Fractional denominator clearing targeting a single fractional trailing term");
+    factorizer.test("(x^3)^n + (x^3)^(n + 2)", "(x^6 + 1) * (x^3)^n", "Nested base evaluation where inner token is a cubic power");
+    factorizer.test("(10/3) * a^n * b^m * (x + 2)^3 - (5/6) * a^(n + 2) * b^(m - 1) * (x + 2)^2", "(5/6) * (4 * b * x + 8 * b + -1 * a^2) * a^n * b^(m - 1) * (x + 2)^2", "Complete stress limits integration spanning every architectural capability");
+
+    std::cout<<"\n";
+    factorizer.printStatus();
+    std::cout<<std::endl;
+
+    return factorizer;
+}
 
 int main() 
 {
@@ -680,10 +771,12 @@ int main()
     
     CanonizeTest canonizer = testCannonizer();
     InverseTest inverser = testInverses();
+    FactorizerTest factorizer = testFactorizer();
 
     std::cout << "Final results: " << std::endl;
     canonizer.printStatus();
     inverser.printStatus();
+    factorizer.printStatus();
     // testInverses();
     std::cout << "Thank you for testing the program!" << std::endl;
     return 0;

@@ -82,6 +82,11 @@ public:
     // this is where structural collapse happens. (Mostly)
     virtual NodePtr localCollapseStructure(OpPtr opNode) const = 0;
 
+    // Factorization rules, rules that map the operator to specifically multiplication
+    // This is best used to seperate a side of an equation into sub cases, to exploit the zero product rule,
+    // like when you factor the lhs in x^2+x-6 = 0 to (x+3)(x-2) = 0, then the solutions are to the sub equations: x+3=0 and x-2 = 0 (x=-3 or x=2)
+    // Not applicable nor necessary for all operators, which is why the default implementation is to just return the input
+    virtual NodePtr factorize(OpPtr opNode) const { return opNode;}
     // Approximation rules that don't have to preserve precision.
     virtual InfFloat approximate(const std::vector<InfFloat>& operands) const = 0;
 

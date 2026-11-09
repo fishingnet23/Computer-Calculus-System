@@ -538,6 +538,33 @@ namespace AST
         return simplify(opToSimplify); 
     }
 
+    NodePtr OperatorNode::factorize(OpPtr opToFactorize)
+    {
+        opToFactorize = unify(opToFactorize);
+
+        std::vector<NodePtr> factorizedArgs;
+        factorizedArgs.reserve(opToFactorize->getArguments().size());
+
+        for(auto& arg : opToFactorize->getArguments())
+        {
+            if(auto innerOperator = SoftCasting::toOperator(arg)) {
+                factorizedArgs.push_back(factorize(innerOperator));
+            } else {
+                factorizedArgs.push_back(arg);
+            }
+        }
+
+        opToFactorize = NodeFactory::getWithArguments(opToFactorize,factorizedArgs);
+        opToFactorize = unify(opToFactorize);
+        auto res = opToFactorize->getDefinition()->factorize(opToFactorize);
+        opToFactorize = SoftCasting::toOperator(res);
+        if(!opToFactorize)
+            return res;
+        opToFactorize = unify(opToFactorize);
+
+        return opToFactorize;
+    }
+
     InfFloat OperatorNode::approximate(OpPtr opToApproximate)
     {
         std::vector<InfFloat> approximateArgs; // they will be NumberPtrs

@@ -18,5 +18,5 @@ class ExpansionTest : public Test
         return {t1.equals(t2),t1.toString(),t2.toString()};
     }
 
-    virtual std::string getName() const override {return "Cannonize Test";}
+    virtual std::string getName() const override {return "Expansion Test";}
 };

@@ -22,6 +22,9 @@ public:
     virtual SyntaxRule::SortingFormat getSortingFormat() const override {return SyntaxRule::SortingFormat::DESCEND;}
     virtual std::shared_ptr<OpDefinition> clone() const override{return std::make_shared<Add>(*this);};
 
+    // the factorizer for addition, it employs techniques like gcd to turn this addition into multiplication
+    virtual NodePtr factorize(OpPtr opNode) const override;
+
     virtual OpPtr buildInverseOf(OpPtr opToInvert) const override;
 };
 }

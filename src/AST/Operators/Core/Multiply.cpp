@@ -218,63 +218,66 @@ namespace AST
         opNode = NodeFactory::getWithArguments(opNode,newArgs);
         return opNode;
     }
-std::string Multiply::toString(const std::vector<NodePtr> &args) const
-{
-    if (args.empty()) 
-        return "";
-
-    std::string str = "";
-
-    auto precedence = getPrecedence();
-    auto getWrappedString = [precedence](const NodePtr& node) {
-        auto op = SoftCasting::toOperator(node);
-        auto rat = SoftCasting::toRational(node);
-        if ((rat && denominator(rat->getFraction())!=1 )|| (op && op->getDefinition()->getPrecedence() < precedence)) {
-            return "(" + node->toString() + ")";
-        }
-        return node->toString();
-    };
-
-    str += getWrappedString(args[0]);
-
-    for (size_t i = 1; i < args.size(); i++)
+    std::string Multiply::toString(const std::vector<NodePtr> &args) const
     {
-        auto prevNumber = SoftCasting::toRawNumber(args[i-1]);
-        auto currNumber = SoftCasting::toRawNumber(args[i]);
-        auto currVar    = SoftCasting::toVariable(args[i]);
-        auto currOp     = SoftCasting::toOperator(args[i]);
+        if (args.empty()) 
+            return "";
 
-        std::string currStr = getWrappedString(args[i]);
+        std::string str = "";
 
-        if (prevNumber && currVar) {
-            str += currStr; 
+        auto precedence = getPrecedence();
+        auto getWrappedString = [precedence](const NodePtr& node) {
+            auto op = SoftCasting::toOperator(node);
+            auto rat = SoftCasting::toRational(node);
+            if ((rat && denominator(rat->getFraction())!=1 )|| (op && op->getDefinition()->getPrecedence() < precedence)) {
+                return "(" + node->toString() + ")";
+            }
+            return node->toString();
+        };
+
+        str += getWrappedString(args[0]);
+
+        for (size_t i = 1; i < args.size(); i++)
+        {
+            auto prevNumber = SoftCasting::toRawNumber(args[i-1]);
+            auto currNumber = SoftCasting::toRawNumber(args[i]);
+            auto currVar    = SoftCasting::toVariable(args[i]);
+            auto currOp     = SoftCasting::toOperator(args[i]);
+
+            std::string currStr = getWrappedString(args[i]);
+
+            if (prevNumber && currVar) {
+                str += currStr; 
+            }
+            else if (prevNumber && currOp && (currStr.front() == '(' || (currOp->getName() == "^" && SoftCasting::toSymbol(currOp->getArgument(0))))) {
+                str += currStr;
+            }
+            else {
+                str += "*" + currStr;
+            }
         }
-        else if (prevNumber && currOp && (currStr.front() == '(' || (currOp->getName() == "^" && SoftCasting::toSymbol(currOp->getArgument(0))))) {
-            str += currStr;
-        }
-        else {
-            str += "*" + currStr;
-        }
+
+        return str;
     }
 
-    return str;
-}
-
-OpPtr Multiply::buildInverseOf(OpPtr opToInvert) const
-{
-    if(opToInvert->getDefinition()->getName() != getName())
-        return nullptr; // not the same operator
-
-    auto& args = opToInvert->getArguments();
-    std::vector<NodePtr> newArgs;
-    newArgs.reserve(args.size());
-
-    for(const auto& arg: args)
+    OpPtr Multiply::buildInverseOf(OpPtr opToInvert) const
     {
-        newArgs.push_back(NodeFactory::makeOperator("^",{arg,NodeFactory::makeNumber(-1)})); // a^(-1) = 1/a
+        if(opToInvert->getDefinition()->getName() != getName())
+            return nullptr; // not the same operator
+
+        auto& args = opToInvert->getArguments();
+        std::vector<NodePtr> newArgs;
+        newArgs.reserve(args.size());
+
+        for(const auto& arg: args)
+        {
+            newArgs.push_back(NodeFactory::makeOperator("^",{arg,NodeFactory::makeNumber(-1)})); // a^(-1) = 1/a
+        }
+
+        return NodeFactory::makeOperator("*",newArgs);
+
     }
 
-    return NodeFactory::makeOperator("*",newArgs);
 
-}
+
 }

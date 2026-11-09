@@ -418,6 +418,7 @@ public:
     static NodePtr localSimplify(OpPtr opToSimplify);
     static NodePtr expand(OpPtr opToExpand);
     static NodePtr canonicalize(OpPtr opToSimplify);
+    static NodePtr factorize(OpPtr opToFactorize);
 
     // Preconditions: opToApproximate must not contain any unsubstituted variables
     // It can only accept an operator with constant approximatables inside.

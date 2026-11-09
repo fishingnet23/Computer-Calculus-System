@@ -25,7 +25,7 @@ public:
         totalTests++;
         TestResult res = performTest(input,expected);
 
-            std::cout << "[" << (res.success? "P":"FAIL")  << "] TEST: [ " << input << " -> " << expected << " ] Result: [" << res.resultString << "], Expected: [" << res.expectedString << "]";
+            std::cout << totalTests<<". [" << (res.success? "P":"FAIL")  << "] TEST: [ " << input << " -> " << expected << " ] Result: [" << res.resultString << "], Expected: [" << res.expectedString << "]";
             
             if(showDescription)
                 std::cout << ", Description: " << description << std::endl;
