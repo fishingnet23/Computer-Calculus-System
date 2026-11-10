@@ -40,6 +40,24 @@ std::string stripWhitespace(const std::string& str) {
     return (start < end) ? std::string(start, end) : "";
 }
 
+void factorize(AST::AlgebraExpression& tree)
+{
+    std::cout << "PRE FACTORIZATION: " << tree.toString() << std::endl;
+
+    tree.factorize();
+
+    std::cout << "FACTORED: " << tree.toString() << std::endl;
+}
+
+void cannonicalize(AST::AlgebraExpression& tree)
+{
+    std::cout << "PRE STANDARDIZATION: " << tree.toString() << std::endl;
+
+    tree.cannonize();
+
+    std::cout << "STANDARDIZED FORM: " << tree.toString() << std::endl;
+}
+
 void keepEvaluating(const AST::AlgebraExpression& tree)
 {    
     std::cout << "Expression to evaluate: " << tree.toString() << std::endl;
@@ -92,7 +110,8 @@ int promptForOption()
     std::cout << "0 - Exit" << std::endl;
     std::cout << "1 - Enter a new expression" << std::endl;
     std::cout << "2 - Evaluate the current expression" << std::endl;
-    // std::cout << "3 - Find the derivative of the current expression" << std::endl;
+    std::cout << "3 - Factorize the current expression" << std::endl;
+    std::cout << "4 - Defactorize the current expression" << std::endl;
     std::cout << "Enter your choice: ";
     int option;
 
@@ -120,6 +139,14 @@ int main()
         else if(option == 2)
         {
             keepEvaluating(tree);
+        }
+        else if(option == 3)
+        {
+            factorize(tree);
+        }
+        else if(option == 4)
+        {
+            cannonicalize(tree);
         }
     }
     while(true);
